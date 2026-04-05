@@ -5,6 +5,8 @@ const SalesOrder = require('../models/SalesOrder');
 const Complaint = require('../models/Complaint');
 const Employee = require('../models/Employee');
 const { protect, authorize } = require('../middleware/auth');
+const { archiveDocument } = require('../services/archiveService');
+const { isValidPhone, PHONE_VALIDATION_MESSAGE } = require('../utils/phoneValidation');
 
 const router = express.Router();
 
@@ -47,7 +49,8 @@ router.post('/customers', [
   protect,
   body('name').notEmpty().withMessage('Customer name is required'),
   body('email').isEmail().withMessage('Valid email is required'),
-  body('phone').notEmpty().withMessage('Phone number is required')
+  body('phone').trim().notEmpty().withMessage('Phone number is required'),
+  body('phone').custom((v) => isValidPhone(v)).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -79,9 +82,23 @@ router.post('/customers', [
 // @desc    Update customer
 // @access  Private (CRM, Admin)
 router.put('/customers/:id', [
-  protect
+  protect,
+  body('phone').custom((value) => {
+    if (value === undefined) return true;
+    if (value === null || String(value).trim() === '') return false;
+    return isValidPhone(String(value));
+  }).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
     const customer = await Customer.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -237,7 +254,7 @@ router.get('/support-tickets', protect, async (req, res) => {
 });
 
 // @route   DELETE /api/crm/customers/:id
-// @desc    Delete customer
+// @desc    Delete (archive) customer
 // @access  Private (CRM, Admin)
 router.delete('/customers/:id', [
   protect
@@ -260,13 +277,24 @@ router.delete('/customers/:id', [
       });
     }
 
-    await Customer.findByIdAndDelete(req.params.id);
+    await archiveDocument({
+      model: Customer,
+      documentId: req.params.id,
+      module: 'CRM',
+      documentType: 'Customer',
+      documentNumber: customer.email || customer.name,
+      userId: req.user.id,
+      reason: req.body?.reason
+    });
 
     res.json({
       success: true,
-      message: 'Customer deleted successfully'
+      message: 'Customer archived successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     console.error('Delete customer error:', error);
     res.status(500).json({
       success: false,
@@ -559,7 +587,7 @@ router.post('/complaints/:id/notes', [
 });
 
 // @route   DELETE /api/crm/complaints/:id
-// @desc    Delete complaint
+// @desc    Delete (archive) complaint
 // @access  Private (CRM, Admin)
 router.delete('/complaints/:id', [
   protect
@@ -573,13 +601,24 @@ router.delete('/complaints/:id', [
       });
     }
 
-    await Complaint.findByIdAndDelete(req.params.id);
+    await archiveDocument({
+      model: Complaint,
+      documentId: req.params.id,
+      module: 'CRM',
+      documentType: 'Complaint',
+      documentNumber: complaint.complaintNumber,
+      userId: req.user.id,
+      reason: req.body?.reason
+    });
 
     res.json({
       success: true,
-      message: 'Complaint deleted successfully'
+      message: 'Complaint archived successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     console.error('Delete complaint error:', error);
     console.error('Error stack:', error.stack);
     res.status(500).json({

@@ -7,6 +7,8 @@ const InventoryTransaction = require('../models/InventoryTransaction');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
 const Employee = require('../models/Employee');
 const { protect, authorize, authorizeCreatePurchaseOrder, authorizeEditPurchaseOrder, authorizeAcceptPurchaseOrder, authorizeReceivePurchaseOrder, authorizeDepartment } = require('../middleware/auth');
+const { logActivity } = require('../utils/logActivity');
+const { archiveDocument } = require('../services/archiveService');
 
 const router = express.Router();
 
@@ -106,6 +108,16 @@ router.post('/orders', [
     await purchaseOrder.populate('supplier', 'name contactPerson email');
     await purchaseOrder.populate('items.product', 'name sku unitCost');
 
+    await logActivity({
+      userId: req.user.id,
+      action: 'CREATE',
+      module: 'PURCHASING',
+      entityId: purchaseOrder._id,
+      entityType: 'PurchaseOrder',
+      newData: purchaseOrder.toObject ? purchaseOrder.toObject() : purchaseOrder,
+      req
+    });
+
     // Generate purchase invoice number
     const lastInvoice = await PurchaseInvoice.findOne().sort({ invoiceNumber: -1 });
     let invoiceNumber;
@@ -204,6 +216,7 @@ router.put('/orders/:id', [
       });
     }
 
+    const oldData = purchaseOrder.toObject ? purchaseOrder.toObject() : { ...purchaseOrder._doc };
     const { supplier, items, expectedDelivery, notes } = req.body;
 
     // Update fields if provided
@@ -231,6 +244,18 @@ router.put('/orders/:id', [
 
     await purchaseOrder.populate('supplier', 'name contactPerson email');
     await purchaseOrder.populate('items.product', 'name sku unitCost');
+
+    const newData = purchaseOrder.toObject ? purchaseOrder.toObject() : { ...purchaseOrder._doc };
+    await logActivity({
+      userId: req.user.id,
+      action: 'UPDATE',
+      module: 'PURCHASING',
+      entityId: purchaseOrder._id,
+      entityType: 'PurchaseOrder',
+      oldData,
+      newData,
+      req
+    });
 
     res.json({
       success: true,
@@ -270,6 +295,16 @@ router.put('/orders/:id/order', [
 
     purchaseOrder.status = 'ordered';
     await purchaseOrder.save();
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'APPROVE',
+      module: 'PURCHASING',
+      entityId: purchaseOrder._id,
+      entityType: 'PurchaseOrder',
+      newData: purchaseOrder.toObject ? purchaseOrder.toObject() : purchaseOrder,
+      req
+    });
 
     await purchaseOrder.populate('supplier', 'name contactPerson email');
     await purchaseOrder.populate('items.product', 'name sku unitCost');
@@ -807,7 +842,7 @@ router.get('/export/:type', protect, async (req, res) => {
 });
 
 // @route   DELETE /api/purchasing/orders/:id
-// @desc    Delete purchase order
+// @desc    Delete (archive) purchase order
 // @access  Private (Admin or Manager in Purchasing department)
 router.delete('/orders/:id', [
   protect,
@@ -822,13 +857,34 @@ router.delete('/orders/:id', [
       });
     }
 
-    await PurchaseOrder.findByIdAndDelete(req.params.id);
+    await archiveDocument({
+      model: PurchaseOrder,
+      documentId: req.params.id,
+      module: 'Purchasing',
+      documentType: 'PurchaseOrder',
+      documentNumber: purchaseOrder.orderNumber,
+      userId: req.user.id,
+      reason: req.body?.reason
+    });
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'DELETE',
+      module: 'PURCHASING',
+      entityId: purchaseOrder._id,
+      entityType: 'PurchaseOrder',
+      oldData: purchaseOrder.toObject ? purchaseOrder.toObject() : { ...purchaseOrder._doc },
+      req
+    });
 
     res.json({
       success: true,
-      message: 'Purchase order deleted successfully'
+      message: 'Purchase order archived successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     console.error('Delete purchase order error:', error);
     res.status(500).json({
       success: false,

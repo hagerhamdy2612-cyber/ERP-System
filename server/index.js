@@ -30,6 +30,8 @@ app.use('/api/purchasing', require('./routes/purchasing'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/finance', require('./routes/finance'));
+app.use('/api/activity-logs', require('./routes/activityLogs'));
+app.use('/api/archive', require('./routes/archive'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

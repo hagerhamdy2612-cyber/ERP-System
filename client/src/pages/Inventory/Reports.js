@@ -25,7 +25,8 @@ const InventoryReports = () => {
     transactionStats: null,
     lowStockProducts: null,
     categoryBreakdown: null,
-    topProductsByValue: null
+    topProductsByValue: null,
+    allProducts: null
   });
   const [sendLoading, setSendLoading] = useState(false);
 
@@ -322,6 +323,62 @@ const InventoryReports = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.stock}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${product.unitCost?.toFixed(2) || '0.00'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${product.totalValue.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* All Products */}
+      {reports.allProducts && reports.allProducts.length > 0 && (
+        <Card padding={false} className="overflow-hidden">
+          <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700 flex items-center gap-2">
+            <Layers className="h-5 w-5 text-primary-500" />
+            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+              All Products ({reports.allProducts.length})
+            </h3>
+          </div>
+          <div className="overflow-x-auto max-h-[28rem] overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+              <thead className="bg-gray-50 dark:bg-slate-700 sticky top-0 z-10">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">SKU</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Stock</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Min</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Max</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Unit Cost</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Selling Price</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Stock Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Supplier</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Low Stock</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
+                {reports.allProducts.map((p, index) => (
+                  <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-slate-700/40 ${p.isLowStock ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{p.name}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.sku}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.category}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.unit}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.currentStock}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.minStockLevel}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.maxStockLevel}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${Number(p.unitCost)?.toFixed(2) || '0.00'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.sellingPrice !== '' && p.sellingPrice != null ? `$${Number(p.sellingPrice).toFixed(2)}` : '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${(p.stockValue || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{p.supplierName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {p.isLowStock ? (
+                        <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">Yes</span>
+                      ) : (
+                        <span className="text-sm text-gray-400 dark:text-gray-500">No</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

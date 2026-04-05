@@ -14,7 +14,7 @@ const ManufacturingOrders = () => {
   const [formData, setFormData] = useState({
     product: '',
     quantity: '',
-    materials: [{ product: '', quantity: '', unitCost: '' }],
+    manufacturingCost: '',
     notes: ''
   });
 
@@ -37,7 +37,7 @@ const ManufacturingOrders = () => {
   const fetchProducts = async () => {
     try {
       const response = await axios.get('/api/inventory/products');
-      setProducts(response.data.data);
+      setProducts(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch products');
     }
@@ -52,7 +52,7 @@ const ManufacturingOrders = () => {
       setFormData({
         product: '',
         quantity: '',
-        materials: [{ product: '', quantity: '', unitCost: '' }],
+        manufacturingCost: '',
         notes: ''
       });
       fetchOrders();
@@ -91,26 +91,6 @@ const ManufacturingOrders = () => {
         toast.error(error.response?.data?.message || t('manufacturing.errors.deleteFailed'));
       }
     }
-  };
-
-  const addMaterial = () => {
-    setFormData({
-      ...formData,
-      materials: [...formData.materials, { product: '', quantity: '', unitCost: '' }]
-    });
-  };
-
-  const removeMaterial = (index) => {
-    setFormData({
-      ...formData,
-      materials: formData.materials.filter((_, i) => i !== index)
-    });
-  };
-
-  const updateMaterial = (index, field, value) => {
-    const updatedMaterials = [...formData.materials];
-    updatedMaterials[index][field] = value;
-    setFormData({ ...formData, materials: updatedMaterials });
   };
 
   const getStatusIcon = (status) => {
@@ -181,6 +161,12 @@ const ManufacturingOrders = () => {
                       <span>Quantity: {order.quantity}</span>
                       <span className="mx-2">•</span>
                       <span>Materials: {order.materials.length}</span>
+                      {order.manufacturingCost != null && Number(order.manufacturingCost) > 0 && (
+                        <>
+                          <span className="mx-2">•</span>
+                          <span>Mfg cost: ${Number(order.manufacturingCost).toLocaleString()}</span>
+                        </>
+                      )}
                       {order.startDate && (
                         <>
                           <span className="mx-2">•</span>
@@ -264,7 +250,7 @@ const ManufacturingOrders = () => {
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
                   <option value="">Select Product</option>
-                  {products.filter(p => p.category === 'finished-good').map(product => (
+                  {products.filter(p => p.category === 'finished-good' || p.category === 'final-product').map(product => (
                     <option key={product._id} value={product._id}>
                       {product?.name || 'Unknown Product'}
                     </option>
@@ -285,55 +271,17 @@ const ManufacturingOrders = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Materials
+                  Manufacturing Cost ($)
                 </label>
-                {formData.materials.map((material, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <select
-                      value={material.product}
-                      onChange={(e) => updateMaterial(index, 'product', e.target.value)}
-                      className="flex-1 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                    >
-                      <option value="">Select Material</option>
-                      {products.filter(p => p.category === 'raw-material' || p.category === 'component').map(product => (
-                        <option key={product._id} value={product._id}>
-                          {product?.name || 'Unknown Product'}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="Qty"
-                      value={material.quantity}
-                      onChange={(e) => updateMaterial(index, 'quantity', e.target.value)}
-                      className="w-20 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Cost"
-                      value={material.unitCost}
-                      onChange={(e) => updateMaterial(index, 'unitCost', e.target.value)}
-                      className="w-20 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                    />
-                    {formData.materials.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeMaterial(index)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addMaterial}
-                  className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors"
-                >
-                  + Add Material
-                </button>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0"
+                  value={formData.manufacturingCost}
+                  onChange={(e) => setFormData({ ...formData, manufacturingCost: e.target.value })}
+                  className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

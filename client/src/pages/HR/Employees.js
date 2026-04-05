@@ -6,6 +6,7 @@ import Card from '../../components/Card';
 import { Plus, Edit, Trash2, User, Mail, Phone, Calendar, Shield, Search, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { canManageEmployees, canAddEmployee, canEditEmployee, canDeleteEmployee } from '../../config/permissions';
+import { isOptionalPhoneValid } from '../../utils/phoneValidation';
 
 const Employees = () => {
   const { t } = useTranslation();
@@ -45,6 +46,10 @@ const Employees = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isOptionalPhoneValid(formData.phone)) {
+      toast.error(t('validation.phoneInvalid'));
+      return;
+    }
     try {
       if (editingEmployee) {
         // For editing, update employee
@@ -160,7 +165,8 @@ const Employees = () => {
         fetchEmployees();
       } catch (error) {
         console.error('Delete error:', error);
-        toast.error(error.response?.data?.message || t('hr.errors.deleteFailed'));
+        const message = error.response?.data?.message || error.message || t('hr.errors.deleteFailed');
+        toast.error(message);
       }
     }
   };
@@ -454,11 +460,13 @@ const Employees = () => {
                 </label>
                 <input
                   type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  placeholder="+1 (555) 123-4567"
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('common.optional')}: {t('validation.phoneHint')}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

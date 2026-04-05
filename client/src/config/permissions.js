@@ -162,6 +162,13 @@ export const canAccessDashboardRoute = (user, module) => {
   return user.department === requiredDepartment;
 };
 
+/** Bank overview + CRUD bank accounts: admin or manager in Finance department */
+export const canManageFinanceBankAccounts = (user) => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return user.role === 'manager' && user.department === 'Finance';
+};
+
 // Helper function to check if user can perform an action
 export const canPerformAction = (user, action) => {
   if (!user) return false;

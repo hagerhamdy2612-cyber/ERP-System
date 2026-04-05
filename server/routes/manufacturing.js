@@ -5,6 +5,7 @@ const Product = require('../models/Product');
 const Employee = require('../models/Employee');
 const InventoryTransaction = require('../models/InventoryTransaction');
 const { protect, authorize } = require('../middleware/auth');
+const { archiveDocument } = require('../services/archiveService');
 
 const router = express.Router();
 
@@ -42,14 +43,13 @@ router.get('/production-orders', protect, async (req, res) => {
 });
 
 // @route   POST /api/manufacturing/production-orders
-// @desc    Create new production order
+// @desc    Create new production order. Materials are taken from product's requiredMaterials (Inventory BOM).
 // @access  Private (Manufacturing, Admin)
 router.post('/production-orders', [
   protect,
   authorize('admin', 'manager'),
   body('product').isMongoId().withMessage('Valid product ID is required'),
-  body('quantity').isNumeric().withMessage('Valid quantity is required'),
-  body('materials').isArray().withMessage('Materials array is required')
+  body('quantity').isNumeric().withMessage('Valid quantity is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -61,19 +61,44 @@ router.post('/production-orders', [
       });
     }
 
-    const { product, quantity, materials, salesOrder, notes } = req.body;
+    const { product: productId, quantity, salesOrder, notes, manufacturingCost } = req.body;
+    const orderQuantity = Number(quantity);
 
-    // Generate production order number
+    const product = await Product.findById(productId).populate('requiredMaterials.product', 'name sku unitCost');
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    if (!product.requiredMaterials || product.requiredMaterials.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This product has no required materials defined. Add them in Inventory > Final Products (Required Raw Materials).'
+      });
+    }
+
+    const materials = [];
+    for (const rm of product.requiredMaterials) {
+      const materialProduct = rm.product;
+      if (!materialProduct) continue;
+      const qty = (rm.quantity || 0) * orderQuantity;
+      materials.push({
+        product: materialProduct._id,
+        quantity: qty,
+        unitCost: materialProduct.unitCost ?? 0
+      });
+    }
+
     const orderCount = await ProductionOrder.countDocuments();
     const orderNumber = `PO${String(orderCount + 1).padStart(4, '0')}`;
 
     const productionOrder = await ProductionOrder.create({
       orderNumber,
-      product,
-      quantity,
+      product: productId,
+      quantity: orderQuantity,
       materials,
       salesOrder,
-      notes
+      notes,
+      manufacturingCost: manufacturingCost != null ? Number(manufacturingCost) : 0
     });
 
     await productionOrder.populate('product', 'name sku');
@@ -295,7 +320,7 @@ router.put('/production-orders/:id/assign', [
 });
 
 // @route   DELETE /api/manufacturing/production-orders/:id
-// @desc    Delete production order
+// @desc    Delete (archive) production order
 // @access  Private (Manufacturing, Admin)
 router.delete('/production-orders/:id', [
   protect,
@@ -310,13 +335,24 @@ router.delete('/production-orders/:id', [
       });
     }
 
-    await ProductionOrder.findByIdAndDelete(req.params.id);
+    await archiveDocument({
+      model: ProductionOrder,
+      documentId: req.params.id,
+      module: 'Production',
+      documentType: 'ProductionOrder',
+      documentNumber: productionOrder.orderNumber,
+      userId: req.user.id,
+      reason: req.body?.reason
+    });
 
     res.json({
       success: true,
-      message: 'Production order deleted successfully'
+      message: 'Production order archived successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     console.error('Delete production order error:', error);
     res.status(500).json({
       success: false,

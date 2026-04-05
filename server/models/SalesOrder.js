@@ -64,9 +64,18 @@ const salesOrderSchema = new mongoose.Schema({
   },
   notes: {
     type: String
-  }
+  },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
   timestamps: true
+});
+
+salesOrderSchema.pre(/^find/, function () {
+  if (!this.getOptions().includeDeleted) {
+    this.where({ isDeleted: { $ne: true } });
+  }
 });
 
 module.exports = mongoose.model('SalesOrder', salesOrderSchema);

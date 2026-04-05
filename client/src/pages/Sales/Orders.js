@@ -17,7 +17,7 @@ const SalesOrders = () => {
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [formData, setFormData] = useState({
     customer: '',
-    items: [{ product: '', quantity: '', unitPrice: '' }],
+    items: [{ product: '', quantity: '' }],
     deliveryDate: '',
     notes: ''
   });
@@ -63,15 +63,12 @@ const SalesOrders = () => {
       // Ensure all required fields are properly formatted
       const submitData = {
         ...formData,
-        items: formData.items.map(item => ({
-          ...item,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice)
-        })).filter(item => item.product && item.quantity && item.unitPrice),
+        items: formData.items
+          .filter(item => item.product && item.quantity)
+          .map(item => ({ product: item.product, quantity: Number(item.quantity) })),
         deliveryDate: formData.deliveryDate ? new Date(formData.deliveryDate).toISOString() : null
       };
 
-      // Validate that we have at least one valid item
       if (submitData.items.length === 0) {
         toast.error(t('sales.errors.addItemRequired'));
         return;
@@ -82,7 +79,7 @@ const SalesOrders = () => {
       setShowModal(false);
       setFormData({
         customer: '',
-        items: [{ product: '', quantity: '', unitPrice: '' }],
+        items: [{ product: '', quantity: '' }],
         deliveryDate: '',
         notes: ''
       });
@@ -150,8 +147,15 @@ const SalesOrders = () => {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { product: '', quantity: '', unitPrice: '' }]
+      items: [...formData.items, { product: '', quantity: '' }]
     });
+  };
+
+  // Get selling price from product (inventory) for display
+  const getProductPrice = (productId) => {
+    const p = products.find(x => x._id === productId);
+    if (!p) return 0;
+    return (p.sellingPrice != null && p.sellingPrice > 0) ? p.sellingPrice : (p.unitCost || 0);
   };
 
   const removeItem = (index) => {
@@ -305,8 +309,8 @@ const SalesOrders = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black dark:bg-opacity-70 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-96 shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black dark:bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
+          <div className="relative top-10 mx-auto p-6 border border-gray-200 dark:border-slate-700 w-full max-w-2xl shadow-lg rounded-lg bg-white dark:bg-slate-800 transition-colors duration-300">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Create Sales Order
@@ -342,39 +346,41 @@ const SalesOrders = () => {
                   Items
                 </label>
                 {formData.items.map((item, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
+                  <div key={index} className="flex flex-wrap items-center gap-3 mb-3 p-2 rounded-md bg-gray-50 dark:bg-slate-700/40">
                     <select
                       value={item.product}
                       onChange={(e) => updateItem(index, 'product', e.target.value)}
-                      className="flex-1 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                      className="min-w-[180px] flex-1 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                     >
                       <option value="">Select Product</option>
                       {products.filter(p => p.category === 'final-product' || p.category === 'finished-good').map(product => (
                         <option key={product._id} value={product._id}>
-                          {product?.name || 'Unknown Product'} - ${product?.sellingPrice || 0}
+                          {product?.name || 'Unknown Product'} (${(product.sellingPrice != null && product.sellingPrice > 0 ? product.sellingPrice : product.unitCost || 0).toLocaleString()})
                         </option>
                       ))}
                     </select>
                     <input
                       type="number"
+                      min="1"
                       placeholder="Qty"
                       value={item.quantity}
                       onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                       className="w-20 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                     />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Price"
-                      value={item.unitPrice}
-                      onChange={(e) => updateItem(index, 'unitPrice', e.target.value)}
-                      className="w-24 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[140px]">
+                      Price: ${getProductPrice(item.product).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {item.product && item.quantity && (
+                        <span className="ml-1 font-medium text-gray-900 dark:text-white">
+                          = ${(getProductPrice(item.product) * Number(item.quantity)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </span>
                     {formData.items.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeItem(index)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                        className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Remove item"
                       >
                         ×
                       </button>

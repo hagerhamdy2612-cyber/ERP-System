@@ -62,19 +62,23 @@ class SchedulerService {
   // Generate automatic purchase orders from low stock
   async generateAutoPurchaseOrders() {
     try {
-      // Find RAW MATERIAL products with low stock
+      // Find ALL products with low stock (any category), matching manual auto-generate
       const lowStockProducts = await Product.find({
         $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-        category: 'raw-material',
         isActive: true,
         supplier: { $exists: true, $ne: null }
       })
       .populate('supplier', 'name contactPerson email');
 
+      console.log(`Auto-purchase: found ${lowStockProducts.length} low-stock product(s) with supplier`);
+
       const createdOrders = [];
 
       for (const product of lowStockProducts) {
-        if (!product.supplier) continue;
+        if (!product.supplier) {
+          console.log(`Auto-purchase: skipping ${product.name} - no supplier`);
+          continue;
+        }
 
         // Check if an auto-generated PO already exists for this product in pending status
         const existingOrder = await PurchaseOrder.findOne({
@@ -84,19 +88,24 @@ class SchedulerService {
         });
 
         if (existingOrder) {
-          console.log(`Auto PO already exists for product ${product.name} - skipping`);
+          console.log(`Auto-purchase: PO already exists for ${product.name} - skipping`);
           continue;
         }
 
         const suggestedQuantity = product.maxStockLevel - product.currentStock;
+        // Ensure quantity is at least 1 (avoid 0 or negative)
+        const quantity = Math.max(1, suggestedQuantity, product.minStockLevel || 1);
+        const unitPrice = product.unitCost != null ? product.unitCost : 0;
+        if (unitPrice <= 0) {
+          console.log(`Auto-purchase: skipping ${product.name} - invalid unitCost`);
+          continue;
+        }
         
         // Generate order number
         const orderCount = await PurchaseOrder.countDocuments();
         const orderNumber = `PO${String(orderCount + createdOrders.length + 1).padStart(4, '0')}`;
 
         // Calculate totals
-        const quantity = Math.max(suggestedQuantity, product.minStockLevel);
-        const unitPrice = product.unitCost;
         const total = quantity * unitPrice;
         const subtotal = total;
         const tax = subtotal * 0.1; // 10% tax
@@ -128,9 +137,11 @@ class SchedulerService {
       }
 
       if (createdOrders.length > 0) {
-        console.log(`Successfully created ${createdOrders.length} automatic purchase orders`);
+        console.log(`Auto-purchase: created ${createdOrders.length} purchase order(s)`);
+      } else if (lowStockProducts.length === 0) {
+        console.log('Auto-purchase: no low-stock products (currentStock <= minStockLevel) with supplier');
       } else {
-        console.log('No new automatic purchase orders needed');
+        console.log('Auto-purchase: no new POs created (all low-stock products already have a pending auto PO)');
       }
     } catch (error) {
       console.error('Error generating automatic purchase orders:', error);

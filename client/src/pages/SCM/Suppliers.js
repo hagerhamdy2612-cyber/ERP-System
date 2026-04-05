@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
 import { Plus, Truck, Star, Phone, Mail, Edit, Trash2, Search, X } from 'lucide-react';
+import { isValidPhone } from '../../utils/phoneValidation';
 
 const SCMSuppliers = () => {
   const { t } = useTranslation();
@@ -45,6 +46,10 @@ const SCMSuppliers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isValidPhone(formData.phone)) {
+      toast.error(t('validation.phoneInvalid'));
+      return;
+    }
     try {
       if (editingSupplier) {
         await axios.put(`/api/scm/suppliers/${editingSupplier._id}`, formData);
@@ -289,10 +294,13 @@ const SCMSuppliers = () => {
                 <input
                   type="tel"
                   required
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('validation.phoneHint')}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

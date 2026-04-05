@@ -477,6 +477,23 @@ class ReportService {
         .sort((a, b) => b.totalValue - a.totalValue)
         .slice(0, 10);
 
+      // All products information (for report sheet)
+      const allProducts = products.map(p => ({
+        name: p.name,
+        sku: p.sku,
+        description: p.description || '',
+        category: p.category || '',
+        unit: p.unit || '',
+        currentStock: p.currentStock,
+        minStockLevel: p.minStockLevel,
+        maxStockLevel: p.maxStockLevel,
+        unitCost: p.unitCost,
+        sellingPrice: p.sellingPrice != null ? p.sellingPrice : '',
+        supplierName: p.supplier?.name || 'N/A',
+        stockValue: (p.currentStock || 0) * (p.unitCost || 0),
+        isLowStock: p.currentStock <= p.minStockLevel
+      }));
+
       return {
         summary: {
           totalProducts: products.length,
@@ -488,6 +505,7 @@ class ReportService {
         lowStockProducts,
         categoryBreakdown,
         topProductsByValue,
+        allProducts,
         transactions: transactions.slice(0, 100) // Limit to recent 100
       };
     } catch (error) {
@@ -509,7 +527,7 @@ class ReportService {
       })
         .populate('product', 'name sku')
         .populate('assignedEmployees.employee', 'employeeId position')
-        .populate('materials.product', 'name sku')
+        .populate('materials.product', 'name sku unit')
         .populate('salesOrder', 'orderNumber')
         .sort({ createdAt: -1 });
 
@@ -579,6 +597,7 @@ class ReportService {
               materialMap.set(prodId, {
                 name: material.product.name,
                 sku: material.product.sku,
+                unit: material.product.unit || '',
                 totalQuantity: 0,
                 totalCost: 0
               });
@@ -593,6 +612,28 @@ class ReportService {
       const topMaterials = Array.from(materialMap.values())
         .sort((a, b) => b.totalQuantity - a.totalQuantity)
         .slice(0, 10);
+
+      // Material consumption report (all materials)
+      const materialConsumption = Array.from(materialMap.values())
+        .sort((a, b) => b.totalQuantity - a.totalQuantity);
+
+      // Production cost analysis (per order: material cost + manufacturing cost)
+      const productionCostAnalysis = productionOrders.map(order => {
+        const materialCost = (order.materials || []).reduce((sum, m) =>
+          sum + (m.quantity || 0) * (m.unitCost || 0), 0
+        );
+        const mfgCost = Number(order.manufacturingCost) || 0;
+        return {
+          orderNumber: order.orderNumber,
+          productName: order.product?.name || '—',
+          quantity: order.quantity,
+          materialCost,
+          manufacturingCost: mfgCost,
+          totalCost: materialCost + mfgCost,
+          status: order.status
+        };
+      });
+      const totalMfgCost = productionCostAnalysis.reduce((s, o) => s + o.manufacturingCost, 0);
 
       return {
         summary: {
@@ -613,7 +654,10 @@ class ReportService {
         },
         topEmployees,
         topMaterials,
-        orders: productionOrders.slice(0, 50)
+        orders: productionOrders.slice(0, 50),
+        materialConsumption,
+        productionCostAnalysis,
+        totalManufacturingCost: totalMfgCost
       };
     } catch (error) {
       console.error('Error fetching manufacturing report:', error);
@@ -628,19 +672,77 @@ class ReportService {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
 
-      // Get all customers
+      // Get all customers (for the report period - new customers)
       const customers = await Customer.find({
         createdAt: { $gte: start, $lte: end }
       }).sort({ createdAt: -1 });
 
-      // Get customer orders
+      // Get all customers (full list for "All Customers" sheet)
+      const allCustomers = await Customer.find().sort({ name: 1 }).lean();
+
+      // Get customer orders in period (for analytics and sales history sheet)
       const customerOrders = await SalesOrder.find({
         orderDate: { $gte: start, $lte: end }
       })
         .populate('customer', 'name email company customerType')
         .sort({ orderDate: -1 });
 
-      // Customer analytics
+      // Per-customer stats from orders in period
+      const customerStatsMap = new Map();
+      customerOrders.forEach(order => {
+        if (order.customer) {
+          const custId = order.customer._id.toString();
+          if (!customerStatsMap.has(custId)) {
+            customerStatsMap.set(custId, {
+              orderCount: 0,
+              totalSpent: 0,
+              lastOrderDate: order.orderDate
+            });
+          }
+          const stats = customerStatsMap.get(custId);
+          stats.orderCount += 1;
+          stats.totalSpent += order.total || 0;
+          if (order.orderDate > stats.lastOrderDate) {
+            stats.lastOrderDate = order.orderDate;
+          }
+        }
+      });
+
+      // All customers with details + sales stats (for Excel "All Customers" sheet)
+      const allCustomersWithSales = allCustomers.map(c => {
+        const stats = customerStatsMap.get(c._id.toString()) || {};
+        const addr = c.address;
+        const addressStr = addr
+          ? [addr.street, addr.city, addr.state, addr.zipCode, addr.country].filter(Boolean).join(', ')
+          : '';
+        return {
+          name: c.name,
+          email: c.email,
+          phone: c.phone || '',
+          company: c.company || '',
+          address: addressStr,
+          customerType: c.customerType || 'individual',
+          creditLimit: c.creditLimit ?? '',
+          paymentTerms: c.paymentTerms || '',
+          isActive: c.isActive !== false ? 'Yes' : 'No',
+          notes: c.notes || '',
+          orderCount: stats.orderCount ?? 0,
+          totalSpent: stats.totalSpent ?? 0,
+          lastOrderDate: stats.lastOrderDate || ''
+        };
+      });
+
+      // Sales history (one row per order in period) for Excel "Sales History" sheet
+      const salesHistory = customerOrders.map(order => ({
+        customerName: order.customer?.name ?? '—',
+        customerEmail: order.customer?.email ?? '—',
+        orderNumber: order.orderNumber ?? '',
+        orderDate: order.orderDate,
+        total: order.total ?? 0,
+        status: order.status ?? ''
+      }));
+
+      // Customer analytics (existing logic)
       const customerMap = new Map();
       customerOrders.forEach(order => {
         if (order.customer) {
@@ -721,7 +823,9 @@ class ReportService {
         complaintStats,
         customerTypeDistribution,
         recentComplaints: complaints.slice(0, 20),
-        newCustomers: customers.slice(0, 20)
+        newCustomers: customers.slice(0, 20),
+        allCustomersWithSales,
+        salesHistory
       };
     } catch (error) {
       console.error('Error fetching CRM report:', error);
@@ -811,6 +915,29 @@ class ReportService {
       const activeSuppliers = suppliers.filter(s => s.isActive).length;
       const inactiveSuppliers = suppliers.filter(s => !s.isActive).length;
 
+      // All suppliers with full details (for Excel "All Suppliers" sheet)
+      const allSuppliersWithDetails = suppliers.map(s => {
+        const addr = s.address;
+        const addressStr = addr
+          ? [addr.street, addr.city, addr.state, addr.zipCode, addr.country].filter(Boolean).join(', ')
+          : '';
+        const perf = supplierMap.get(s._id.toString());
+        return {
+          name: s.name,
+          contactPerson: s.contactPerson || '',
+          email: s.email || '',
+          phone: s.phone || '',
+          address: addressStr,
+          rating: s.rating != null ? s.rating : '',
+          paymentTerms: s.paymentTerms || '',
+          isActive: s.isActive !== false ? 'Yes' : 'No',
+          productCount: Array.isArray(s.products) ? s.products.length : 0,
+          orderCount: perf?.orderCount ?? 0,
+          totalSpent: perf?.totalSpent ?? 0,
+          onTimeRate: perf && perf.orderCount > 0 ? (perf.onTimeDeliveries / perf.orderCount) * 100 : ''
+        };
+      });
+
       return {
         summary: {
           totalSuppliers: suppliers.length,
@@ -822,7 +949,8 @@ class ReportService {
         supplierPerformance,
         topSuppliers,
         ratingDistribution,
-        suppliers: suppliers.slice(0, 50)
+        suppliers: suppliers.slice(0, 50),
+        allSuppliersWithDetails
       };
     } catch (error) {
       console.error('Error fetching SCM report:', error);
@@ -1091,7 +1219,7 @@ class ReportService {
   // Generate Excel workbook for inventory report
   async generateInventoryExcel(reportData, startDate, endDate) {
     const workbook = new ExcelJS.Workbook();
-    
+
     // Summary Sheet
     const summarySheet = workbook.addWorksheet('Summary');
     summarySheet.addRow(['Inventory Report Summary']);
@@ -1101,7 +1229,42 @@ class ReportService {
     summarySheet.addRow(['Total Inventory Value', `$${reportData.summary?.totalInventoryValue?.toLocaleString() || 0}`]);
     summarySheet.addRow(['Low Stock Items', reportData.summary?.lowStockCount || 0]);
     summarySheet.addRow(['Total Transactions', reportData.transactionStats?.totalTransactions || 0]);
-    
+
+    // All Products Sheet
+    if (reportData.allProducts && reportData.allProducts.length > 0) {
+      const allProductsSheet = workbook.addWorksheet('All Products');
+      allProductsSheet.columns = [
+        { header: 'Name', key: 'name', width: 28 },
+        { header: 'SKU', key: 'sku', width: 16 },
+        { header: 'Category', key: 'category', width: 14 },
+        { header: 'Unit', key: 'unit', width: 10 },
+        { header: 'Current Stock', key: 'currentStock', width: 14 },
+        { header: 'Min Level', key: 'minStockLevel', width: 12 },
+        { header: 'Max Level', key: 'maxStockLevel', width: 12 },
+        { header: 'Unit Cost', key: 'unitCost', width: 12 },
+        { header: 'Selling Price', key: 'sellingPrice', width: 14 },
+        { header: 'Stock Value', key: 'stockValue', width: 14 },
+        { header: 'Supplier', key: 'supplierName', width: 20 },
+        { header: 'Low Stock', key: 'isLowStock', width: 12 }
+      ];
+      reportData.allProducts.forEach(p => {
+        allProductsSheet.addRow({
+          name: p.name,
+          sku: p.sku,
+          category: p.category,
+          unit: p.unit,
+          currentStock: p.currentStock,
+          minStockLevel: p.minStockLevel,
+          maxStockLevel: p.maxStockLevel,
+          unitCost: p.unitCost,
+          sellingPrice: p.sellingPrice !== '' && p.sellingPrice != null ? p.sellingPrice : 'N/A',
+          stockValue: p.stockValue,
+          supplierName: p.supplierName,
+          isLowStock: p.isLowStock ? 'Yes' : 'No'
+        });
+      });
+    }
+
     // Low Stock Sheet
     if (reportData.lowStockProducts && reportData.lowStockProducts.length > 0) {
       const lowStockSheet = workbook.addWorksheet('Low Stock');
@@ -1165,7 +1328,67 @@ class ReportService {
     summarySheet.addRow(['In Progress Orders', reportData.summary?.inProgressOrders || 0]);
     summarySheet.addRow(['Total Quantity Produced', reportData.summary?.totalQuantity || 0]);
     summarySheet.addRow(['Total Material Cost', `$${reportData.summary?.totalMaterialCost?.toLocaleString() || 0}`]);
+    summarySheet.addRow(['Total Manufacturing Cost', `$${reportData.totalManufacturingCost?.toLocaleString() || 0}`]);
     summarySheet.addRow(['Avg Production Time', `${reportData.summary?.averageProductionTime?.toFixed(2) || 0} hours`]);
+    
+    // Material Consumption Report
+    if (reportData.materialConsumption && reportData.materialConsumption.length > 0) {
+      const consumptionSheet = workbook.addWorksheet('Material Consumption');
+      consumptionSheet.columns = [
+        { header: 'Material Name', key: 'name', width: 28 },
+        { header: 'SKU', key: 'sku', width: 18 },
+        { header: 'Total Quantity', key: 'totalQuantity', width: 16 },
+        { header: 'Unit', key: 'unit', width: 10 },
+        { header: 'Total Cost', key: 'totalCost', width: 14 }
+      ];
+      reportData.materialConsumption.forEach(m => {
+        consumptionSheet.addRow({
+          name: m.name,
+          sku: m.sku,
+          totalQuantity: m.totalQuantity,
+          unit: m.unit,
+          totalCost: m.totalCost
+        });
+      });
+    }
+
+    // Production Cost Analysis
+    if (reportData.productionCostAnalysis && reportData.productionCostAnalysis.length > 0) {
+      const costSheet = workbook.addWorksheet('Production Cost Analysis');
+      costSheet.columns = [
+        { header: 'Order Number', key: 'orderNumber', width: 16 },
+        { header: 'Product', key: 'productName', width: 24 },
+        { header: 'Quantity', key: 'quantity', width: 12 },
+        { header: 'Material Cost', key: 'materialCost', width: 16 },
+        { header: 'Manufacturing Cost', key: 'manufacturingCost', width: 18 },
+        { header: 'Total Cost', key: 'totalCost', width: 14 },
+        { header: 'Status', key: 'status', width: 14 }
+      ];
+      reportData.productionCostAnalysis.forEach(row => {
+        costSheet.addRow({
+          orderNumber: row.orderNumber,
+          productName: row.productName,
+          quantity: row.quantity,
+          materialCost: row.materialCost,
+          manufacturingCost: row.manufacturingCost,
+          totalCost: row.totalCost,
+          status: row.status
+        });
+      });
+      const totalMaterial = reportData.productionCostAnalysis.reduce((s, o) => s + o.materialCost, 0);
+      const totalMfg = reportData.productionCostAnalysis.reduce((s, o) => s + o.manufacturingCost, 0);
+      const grandTotal = reportData.productionCostAnalysis.reduce((s, o) => s + o.totalCost, 0);
+      costSheet.addRow([]);
+      costSheet.addRow({
+        orderNumber: 'Total',
+        productName: '',
+        quantity: '',
+        materialCost: totalMaterial,
+        manufacturingCost: totalMfg,
+        totalCost: grandTotal,
+        status: ''
+      });
+    }
     
     // Top Employees Sheet
     if (reportData.topEmployees && reportData.topEmployees.length > 0) {
@@ -1216,38 +1439,72 @@ class ReportService {
   async generateCRMExcel(reportData, startDate, endDate) {
     const workbook = new ExcelJS.Workbook();
     
-    // Summary Sheet
-    const summarySheet = workbook.addWorksheet('Summary');
-    summarySheet.addRow(['CRM Report Summary']);
-    summarySheet.addRow(['Period', `${startDate} to ${endDate}`]);
-    summarySheet.addRow([]);
-    summarySheet.addRow(['Total Customers', reportData.summary?.totalCustomers || 0]);
-    summarySheet.addRow(['Active Customers', reportData.summary?.activeCustomers || 0]);
-    summarySheet.addRow(['Total Complaints', reportData.summary?.totalComplaints || 0]);
-    summarySheet.addRow(['Resolved Complaints', reportData.complaintStats?.resolved || 0]);
-    
-    // Top Customers Sheet
-    if (reportData.topCustomers && reportData.topCustomers.length > 0) {
-      const customersSheet = workbook.addWorksheet('Top Customers');
-      customersSheet.columns = [
-        { header: 'Customer Name', key: 'name', width: 30 },
-        { header: 'Email', key: 'email', width: 30 },
-        { header: 'Type', key: 'type', width: 15 },
-        { header: 'Orders', key: 'orders', width: 10 },
-        { header: 'Total Spent', key: 'totalSpent', width: 15 },
-        { header: 'Last Order', key: 'lastOrder', width: 15 }
+    // All Customers Sheet (customer details + sales stats in period)
+    if (reportData.allCustomersWithSales && reportData.allCustomersWithSales.length > 0) {
+      const allCustomersSheet = workbook.addWorksheet('All Customers');
+      allCustomersSheet.columns = [
+        { header: 'Name', key: 'name', width: 24 },
+        { header: 'Email', key: 'email', width: 28 },
+        { header: 'Phone', key: 'phone', width: 16 },
+        { header: 'Company', key: 'company', width: 20 },
+        { header: 'Type', key: 'customerType', width: 12 },
+        { header: 'Credit Limit', key: 'creditLimit', width: 14 },
+        { header: 'Payment Terms', key: 'paymentTerms', width: 14 },
+        { header: 'Active', key: 'isActive', width: 8 },
+        { header: 'Notes', key: 'notes', width: 24 },
+        { header: 'Orders (Period)', key: 'orderCount', width: 14 },
+        { header: 'Total Spent (Period)', key: 'totalSpent', width: 18 },
+        { header: 'Last Order Date', key: 'lastOrderDate', width: 16 }
       ];
-      
-      reportData.topCustomers.forEach(customer => {
-        customersSheet.addRow({
-          name: customer.name,
-          email: customer.email,
-          type: customer.customerType || 'individual',
-          orders: customer.orderCount,
-          totalSpent: customer.totalSpent,
-          lastOrder: moment(customer.lastOrderDate).format('YYYY-MM-DD')
+      reportData.allCustomersWithSales.forEach(c => {
+        allCustomersSheet.addRow({
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          company: c.company,
+          customerType: c.customerType,
+          creditLimit: c.creditLimit,
+          paymentTerms: c.paymentTerms,
+          isActive: c.isActive,
+          notes: c.notes,
+          orderCount: c.orderCount,
+          totalSpent: c.totalSpent,
+          lastOrderDate: c.lastOrderDate ? moment(c.lastOrderDate).format('YYYY-MM-DD') : ''
         });
       });
+    }
+
+    // Sales History Sheet (one row per order in period)
+    const salesHistorySheet = workbook.addWorksheet('Sales History');
+    salesHistorySheet.columns = [
+      { header: 'Customer Name', key: 'customerName', width: 24 },
+      { header: 'Customer Email', key: 'customerEmail', width: 28 },
+      { header: 'Number of Orders', key: 'totalOrdersCustomer', width: 16 },
+      { header: 'Order Number', key: 'orderNumber', width: 18 },
+      { header: 'Order Date', key: 'orderDate', width: 14 },
+      { header: 'Total Spent', key: 'total', width: 14 },
+      { header: 'Status', key: 'status', width: 14 }
+    ];
+    if (reportData.salesHistory && reportData.salesHistory.length > 0) {
+      const customerOrderCount = {};
+      reportData.salesHistory.forEach(row => {
+        const key = row.customerEmail ?? row.customerName ?? '';
+        customerOrderCount[key] = (customerOrderCount[key] || 0) + 1;
+      });
+      reportData.salesHistory.forEach(row => {
+        const key = row.customerEmail ?? row.customerName ?? '';
+        salesHistorySheet.addRow({
+          customerName: row.customerName,
+          customerEmail: row.customerEmail,
+          totalOrdersCustomer: customerOrderCount[key] ?? 0,
+          orderNumber: row.orderNumber,
+          orderDate: row.orderDate ? moment(row.orderDate).format('YYYY-MM-DD') : '',
+          total: row.total,
+          status: row.status
+        });
+      });
+    } else {
+      salesHistorySheet.addRow({ customerName: 'No orders in this period.', customerEmail: '', totalOrdersCustomer: '', orderNumber: '', orderDate: '', total: '', status: '' });
     }
     
     // Complaint Stats Sheet
@@ -1268,37 +1525,34 @@ class ReportService {
   // Generate Excel workbook for SCM report
   async generateSCMExcel(reportData, startDate, endDate) {
     const workbook = new ExcelJS.Workbook();
-    
-    // Summary Sheet
-    const summarySheet = workbook.addWorksheet('Summary');
-    summarySheet.addRow(['SCM Report Summary']);
-    summarySheet.addRow(['Period', `${startDate} to ${endDate}`]);
-    summarySheet.addRow([]);
-    summarySheet.addRow(['Total Suppliers', reportData.summary?.totalSuppliers || 0]);
-    summarySheet.addRow(['Active Suppliers', reportData.summary?.activeSuppliers || 0]);
-    summarySheet.addRow(['Inactive Suppliers', reportData.summary?.inactiveSuppliers || 0]);
-    summarySheet.addRow(['Total Orders', reportData.summary?.totalOrders || 0]);
-    
-    // Top Suppliers Sheet
-    if (reportData.topSuppliers && reportData.topSuppliers.length > 0) {
-      const suppliersSheet = workbook.addWorksheet('Top Suppliers');
-      suppliersSheet.columns = [
-        { header: 'Supplier Name', key: 'name', width: 30 },
-        { header: 'Contact Person', key: 'contact', width: 25 },
+
+    // All Suppliers Sheet (full supplier details)
+    if (reportData.allSuppliersWithDetails && reportData.allSuppliersWithDetails.length > 0) {
+      const allSuppliersSheet = workbook.addWorksheet('All Suppliers');
+      allSuppliersSheet.columns = [
+        { header: 'Name', key: 'name', width: 26 },
+        { header: 'Contact Person', key: 'contactPerson', width: 22 },
+        { header: 'Email', key: 'email', width: 28 },
+        { header: 'Phone', key: 'phone', width: 16 },
         { header: 'Rating', key: 'rating', width: 10 },
-        { header: 'Orders', key: 'orders', width: 10 },
-        { header: 'Total Spent', key: 'totalSpent', width: 15 },
-        { header: 'On-Time Rate %', key: 'onTimeRate', width: 15 }
+        { header: 'Payment Terms', key: 'paymentTerms', width: 14 },
+        { header: 'Active', key: 'isActive', width: 8 },
+        { header: 'Product Count', key: 'productCount', width: 14 },
+        { header: 'Orders (Period)', key: 'orderCount', width: 14 },
+        { header: 'Total Spent (Period)', key: 'totalSpent', width: 18 }
       ];
-      
-      reportData.topSuppliers.forEach(supplier => {
-        suppliersSheet.addRow({
-          name: supplier.name,
-          contact: supplier.contactPerson,
-          rating: supplier.rating || 'N/A',
-          orders: supplier.orderCount,
-          totalSpent: supplier.totalSpent,
-          onTimeRate: supplier.onTimeRate.toFixed(2)
+      reportData.allSuppliersWithDetails.forEach(s => {
+        allSuppliersSheet.addRow({
+          name: s.name,
+          contactPerson: s.contactPerson,
+          email: s.email,
+          phone: s.phone,
+          rating: s.rating,
+          paymentTerms: s.paymentTerms,
+          isActive: s.isActive,
+          productCount: s.productCount,
+          orderCount: s.orderCount,
+          totalSpent: s.totalSpent
         });
       });
     }

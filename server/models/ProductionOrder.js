@@ -49,9 +49,22 @@ const productionOrderSchema = new mongoose.Schema({
   },
   notes: {
     type: String
-  }
+  },
+  manufacturingCost: {
+    type: Number,
+    default: 0
+  },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
   timestamps: true
+});
+
+productionOrderSchema.pre(/^find/, function () {
+  if (!this.getOptions().includeDeleted) {
+    this.where({ isDeleted: { $ne: true } });
+  }
 });
 
 module.exports = mongoose.model('ProductionOrder', productionOrderSchema);

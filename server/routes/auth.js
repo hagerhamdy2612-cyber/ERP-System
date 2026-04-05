@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -122,6 +123,14 @@ router.post('/login', [
     // Update last login
     user.lastLogin = new Date();
     await user.save();
+
+    await logActivity({
+      userId: user._id,
+      action: 'LOGIN',
+      module: 'AUTH',
+      entityType: 'User',
+      req
+    });
 
     const token = generateToken(user._id);
 

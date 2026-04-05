@@ -42,6 +42,8 @@ import FinanceTransactions from './pages/Finance/Transactions';
 import FinanceBank from './pages/Finance/Bank';
 import FinanceExpenses from './pages/Finance/Expenses';
 import FinanceBankAccounts from './pages/Finance/BankAccounts';
+import ActivityLog from './pages/Admin/ActivityLog';
+import ArchivePage from './pages/Admin/Archive';
 
 // Conditional Attendance Route Component
 const ConditionalAttendanceRoute = ({ module, children }) => {
@@ -146,6 +148,10 @@ function App() {
                   <Dashboard />
                 </ProtectedModuleRoute>
               } />
+              {/* Activity Log - Admin only */}
+              <Route path="admin/activity-log" element={<ActivityLog />} />
+              {/* Archive - Admin & Manager only */}
+              <Route path="admin/archive" element={<ArchivePage />} />
               
               {/* HR Routes - Only for HR department and admins */}
               <Route path="hr/dashboard" element={

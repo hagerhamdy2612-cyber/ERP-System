@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Supplier = require('../models/Supplier');
 const Product = require('../models/Product');
 const { protect, authorize } = require('../middleware/auth');
+const { isValidPhone, PHONE_VALIDATION_MESSAGE } = require('../utils/phoneValidation');
 
 const router = express.Router();
 
@@ -45,7 +46,8 @@ router.post('/suppliers', [
   body('name').notEmpty().withMessage('Supplier name is required'),
   body('contactPerson').notEmpty().withMessage('Contact person is required'),
   body('email').isEmail().withMessage('Valid email is required'),
-  body('phone').notEmpty().withMessage('Phone number is required')
+  body('phone').trim().notEmpty().withMessage('Phone number is required'),
+  body('phone').custom((v) => isValidPhone(v)).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -77,9 +79,23 @@ router.post('/suppliers', [
 // @access  Private (SCM, Admin)
 router.put('/suppliers/:id', [
   protect,
-  authorize('admin', 'manager')
+  authorize('admin', 'manager'),
+  body('phone').custom((value) => {
+    if (value === undefined) return true;
+    if (value === null || String(value).trim() === '') return false;
+    return isValidPhone(String(value));
+  }).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
     const supplier = await Supplier.findByIdAndUpdate(
       req.params.id,
       req.body,

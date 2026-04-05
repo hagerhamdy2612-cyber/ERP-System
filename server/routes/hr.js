@@ -4,7 +4,9 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { protect, authorize, authorizeAdminOrHR, authorizeEmployeeManagement } = require('../middleware/auth');
+const { archiveDocument } = require('../services/archiveService');
 const moment = require('moment');
+const { isOptionalPhoneValid, PHONE_VALIDATION_MESSAGE } = require('../utils/phoneValidation');
 
 const router = express.Router();
 
@@ -206,7 +208,8 @@ router.post('/employees', [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('department').notEmpty().withMessage('Department is required'),
   body('salary').optional().isNumeric().withMessage('Salary must be a number'),
-  body('holidays').optional().isInt({ min: 0 }).withMessage('Holidays must be a non-negative integer')
+  body('holidays').optional().isInt({ min: 0 }).withMessage('Holidays must be a non-negative integer'),
+  body('phone').custom((value) => isOptionalPhoneValid(value == null ? '' : String(value))).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -340,9 +343,22 @@ router.post('/employees', [
 // @access  Private (Admin, managers, and non-HR employees)
 router.put('/employees/:id', [
   protect,
-  authorizeEmployeeManagement
+  authorizeEmployeeManagement,
+  body('phone').custom((value) => {
+    if (value === undefined) return true;
+    return isOptionalPhoneValid(String(value));
+  }).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
     const { name, email, role, department, salary, holidays, phone, password } = req.body;
 
     const user = await User.findById(req.params.id);
@@ -814,7 +830,7 @@ router.post('/attendance/checkout', protect, async (req, res) => {
 });
 
 // @route   DELETE /api/hr/employees/:id
-// @desc    Delete user (displayed as employee) - Admin, managers, and non-HR employees
+// @desc    Delete (archive) user (displayed as employee)
 // @access  Private (Admin, managers, and non-HR employees)
 router.delete('/employees/:id', [
   protect,
@@ -829,14 +845,24 @@ router.delete('/employees/:id', [
       });
     }
 
-    // Delete user
-    await User.findByIdAndDelete(req.params.id);
+    await archiveDocument({
+      model: User,
+      documentId: req.params.id,
+      module: 'HR',
+      documentType: 'User',
+      documentNumber: user.email || user.name,
+      userId: req.user.id,
+      reason: req.body?.reason
+    });
 
     res.json({
       success: true,
-      message: 'User deleted successfully'
+      message: 'User archived successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     console.error('Delete user error:', error);
     res.status(500).json({
       success: false,

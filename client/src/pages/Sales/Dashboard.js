@@ -54,41 +54,41 @@ const SalesDashboard = () => {
         .reduce((sum, o) => sum + (o.total || 0), 0);
       const totalCustomers = customers.length;
       
-      // Calculate revenue chart data from actual orders (last 30 days)
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      
-      // Filter orders from last 30 days with confirmed/shipped/delivered status
-      const recentOrders = orders.filter(o => {
-        const orderDate = new Date(o.orderDate);
-        return orderDate >= thirtyDaysAgo && 
-               ['confirmed', 'shipped', 'delivered'].includes(o.status);
+      // Line chart: one point per sales order, positioned by the delivery date chosen on the form.
+      const getSortTime = (o) => {
+        const raw = o.deliveryDate || o.orderDate;
+        const t = new Date(raw);
+        return Number.isNaN(t.getTime()) ? 0 : t.getTime();
+      };
+
+      const chartOrders = orders
+        .filter((o) => o.status !== 'cancelled')
+        .sort((a, b) => getSortTime(a) - getSortTime(b));
+
+      const revenueData = chartOrders.map((order) => {
+        const delivery = order.deliveryDate
+          ? new Date(order.deliveryDate)
+          : new Date(order.orderDate);
+        const deliveryStr = Number.isNaN(delivery.getTime())
+          ? '—'
+          : delivery.toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+        const shortDate = Number.isNaN(delivery.getTime())
+          ? '—'
+          : delivery.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return {
+          date: `${shortDate} · ${order.orderNumber}`,
+          revenue: order.total || 0,
+          orderNumber: order.orderNumber,
+          deliveryLabel: deliveryStr,
+          customerName: order.customer?.name || '—',
+          usedOrderDate: !order.deliveryDate
+        };
       });
-      
-      // Group by date
-      const revenueByDate = {};
-      recentOrders.forEach(order => {
-        const orderDate = new Date(order.orderDate);
-        const dateKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        if (!revenueByDate[dateKey]) {
-          revenueByDate[dateKey] = {
-            date: dateKey,
-            revenue: 0,
-            orders: 0
-          };
-        }
-        revenueByDate[dateKey].revenue += order.total || 0;
-        revenueByDate[dateKey].orders += 1;
-      });
-      
-      // Convert to array and sort by date
-      const revenueData = Object.values(revenueByDate)
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .map(item => ({
-          date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          revenue: item.revenue,
-          orders: item.orders
-        }));
 
       setRevenueChartData(revenueData);
       setKpis({
@@ -135,6 +135,37 @@ const SalesDashboard = () => {
       case 'pending': return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-400';
       default: return 'bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300';
     }
+  };
+
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const chartTooltipStyle = {
+    backgroundColor: isDark ? '#1e293b' : '#fff',
+    border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    color: isDark ? '#fff' : '#000',
+    padding: '10px 12px',
+    fontSize: '13px'
+  };
+
+  const SalesChartTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const p = payload[0].payload;
+    const muted = isDark ? '#94a3b8' : '#4b5563';
+    const accent = isDark ? '#34d399' : '#059669';
+    return (
+      <div style={chartTooltipStyle}>
+        <p style={{ fontWeight: 600 }}>{p.orderNumber}</p>
+        <p style={{ marginTop: 6, color: muted, fontSize: 12 }}>
+          Delivery: {p.deliveryLabel}
+          {p.usedOrderDate ? ' (no delivery date — using order date)' : ''}
+        </p>
+        <p style={{ color: muted, fontSize: 12 }}>Customer: {p.customerName}</p>
+        <p style={{ marginTop: 6, fontWeight: 600, color: accent }}>
+          Order total: ${Number(p.revenue).toLocaleString()}
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -222,10 +253,10 @@ const SalesDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-                Total Revenue
+                Orders by delivery date
               </h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Revenue trends over the last month
+                One point per order using the delivery date from the form (sorted by that date). Line height is that order&apos;s total.
               </p>
             </div>
             <div className="text-right">
@@ -277,7 +308,7 @@ const SalesDashboard = () => {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
-                No revenue data available
+                No sales orders to chart yet
               </div>
             )}
           </div>

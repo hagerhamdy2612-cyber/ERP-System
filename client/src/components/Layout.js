@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getUserAllowedModules, MODULE_NAMES, canShowAttendanceInModule, canAccessDashboardRoute } from '../config/permissions';
+import { getUserAllowedModules, MODULE_NAMES, canShowAttendanceInModule, canAccessDashboardRoute, canManageFinanceBankAccounts } from '../config/permissions';
 import LanguageSwitcher from './LanguageSwitcher';
 import { translateNavigationItem } from '../utils/translateNavigation';
 import {
@@ -25,7 +25,9 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  Wallet
+  Wallet,
+  ClipboardList,
+  Archive
 } from 'lucide-react';
 
 const Layout = () => {
@@ -42,12 +44,26 @@ const Layout = () => {
 
   // Define all possible navigation items
   const allNavigation = [
-    ...(user?.role === 'admin' ? [{
-      name: 'Main Dashboard', 
-      href: '/app/dashboard', 
-      icon: Home, 
-      module: 'dashboard'
-    }] : []),
+    ...(user?.role === 'admin' ? [
+      {
+        name: 'Main Dashboard',
+        href: '/app/dashboard',
+        icon: Home,
+        module: 'dashboard'
+      },
+      {
+        name: 'Activity Log',
+        href: '/app/admin/activity-log',
+        icon: ClipboardList,
+        module: 'dashboard'
+      },
+      {
+        name: 'Archive',
+        href: '/app/admin/archive',
+        icon: Archive,
+        module: 'archive'
+      }
+    ] : []),
     { 
       name: 'HR', 
       href: '/app/hr/dashboard', 
@@ -145,10 +161,10 @@ const Layout = () => {
       children: [
         { name: 'Dashboard', href: '/app/finance/dashboard' },
         { name: 'Transactions', href: '/app/finance/transactions' },
-        { name: 'Bank', href: '/app/finance/bank', adminOnly: true },
+        { name: 'Bank', href: '/app/finance/bank', financeBankAccess: true },
         { name: 'Expenses', href: '/app/finance/expenses' },
         { name: 'Attendance', href: '/app/finance/attendance' },
-        { name: 'Manage Accounts', href: '/app/finance/bank-accounts', adminOnly: true }
+        { name: 'Manage Accounts', href: '/app/finance/bank-accounts', financeBankAccess: true }
       ]
     }
   ];
@@ -167,6 +183,9 @@ const Layout = () => {
         }
         // Hide admin-only items for non-admin users
         if (child.adminOnly && user?.role !== 'admin') {
+          return false;
+        }
+        if (child.financeBankAccess && !canManageFinanceBankAccounts(user)) {
           return false;
         }
         return true;
@@ -189,6 +208,10 @@ const Layout = () => {
         children: filteredChildren
       };
     }).filter(item => {
+      // Archive: admin only
+      if (item.module === 'archive') {
+        return user?.role === 'admin';
+      }
       // Filter by allowed modules
       if (!allowedModules.includes(item.module)) {
         return false;
@@ -269,7 +292,7 @@ const Layout = () => {
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-40 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white dark:bg-slate-900 shadow-xl transition-colors duration-300">
+        <div className="fixed inset-y-0 left-0 flex flex-col max-w-xs w-full h-full bg-white dark:bg-slate-900 shadow-xl transition-colors duration-300">
           <div className="absolute top-0 right-0 -mr-12 pt-2">
             <button
               type="button"
@@ -284,8 +307,8 @@ const Layout = () => {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex lg:flex-shrink-0 lg:fixed lg:left-0 lg:top-16 lg:h-screen lg:z-30">
-        <div className="flex flex-col w-64 h-full">
+      <div className="hidden lg:flex lg:flex-shrink-0 lg:fixed lg:left-0 lg:top-16 lg:bottom-0 lg:w-64 lg:h-[calc(100vh-4rem)] lg:z-30">
+        <div className="flex flex-col w-full h-full">
           <SidebarContent navigation={navigation} isActive={isActive} />
         </div>
       </div>

@@ -7,6 +7,7 @@ const SalesOrder = require('../models/SalesOrder');
 const PurchaseOrder = require('../models/PurchaseOrder');
 const ProductionOrder = require('../models/ProductionOrder');
 const { protect, authorize } = require('../middleware/auth');
+const { archiveDocument } = require('../services/archiveService');
 
 const router = express.Router();
 
@@ -49,6 +50,7 @@ router.get('/products', protect, async (req, res) => {
 
     const products = await Product.find(query)
       .populate('supplier', 'name contactPerson')
+      .populate('requiredMaterials.product', 'name sku unit unitCost')
       .sort({ name: 1 });
 
     res.json({
@@ -363,13 +365,24 @@ router.delete('/products/:id', [
       console.log('Order check failed, proceeding with deletion');
     }
 
-    await Product.findByIdAndDelete(req.params.id);
+    await archiveDocument({
+      model: Product,
+      documentId: req.params.id,
+      module: 'Inventory',
+      documentType: 'Product',
+      documentNumber: product.sku,
+      userId: req.user.id,
+      reason: req.body?.reason
+    });
 
     res.json({
       success: true,
-      message: 'Product deleted successfully'
+      message: 'Product archived successfully'
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
     console.error('Delete product error:', error);
     console.error('Error stack:', error.stack);
     res.status(500).json({

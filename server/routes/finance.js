@@ -1,7 +1,8 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, authorizeDepartment } = require('../middleware/auth');
 const BankAccount = require('../models/BankAccount');
+const { logActivity } = require('../utils/logActivity');
 const Transaction = require('../models/Transaction');
 const Expense = require('../models/Expense');
 const Invoice = require('../models/Invoice');
@@ -500,12 +501,12 @@ router.get('/bank-accounts', protect, authorize('admin'), async (req, res) => {
 
 /**
  * @route   POST /api/finance/bank-accounts
- * @desc    Create a new bank account (Admin only)
- * @access  Private (Admin)
+ * @desc    Create a new bank account (Admin or Finance manager)
+ * @access  Private
  */
 router.post('/bank-accounts', [
   protect,
-  authorize('admin'),
+  authorizeDepartment('Finance'),
   body('name').notEmpty().withMessage('Name is required').trim(),
   body('balance').optional().isFloat({ min: 0 }).withMessage('Balance must be a positive number')
 ], async (req, res) => {
@@ -535,6 +536,16 @@ router.post('/bank-accounts', [
       balance: parseFloat(balance) || 0
     });
 
+    await logActivity({
+      userId: req.user.id,
+      action: 'CREATE',
+      module: 'FINANCE',
+      entityId: bankAccount._id,
+      entityType: 'BankAccount',
+      newData: bankAccount.toObject ? bankAccount.toObject() : bankAccount,
+      req
+    });
+
     res.status(201).json({
       success: true,
       message: 'Bank account created successfully',
@@ -551,12 +562,12 @@ router.post('/bank-accounts', [
 
 /**
  * @route   PUT /api/finance/bank-accounts/:id
- * @desc    Update a bank account (Admin only)
- * @access  Private (Admin)
+ * @desc    Update a bank account (Admin or Finance manager)
+ * @access  Private
  */
 router.put('/bank-accounts/:id', [
   protect,
-  authorize('admin'),
+  authorizeDepartment('Finance'),
   body('name').optional().notEmpty().withMessage('Name cannot be empty').trim(),
   body('balance').optional().isFloat({ min: 0 }).withMessage('Balance must be a positive number')
 ], async (req, res) => {
@@ -580,6 +591,8 @@ router.put('/bank-accounts/:id', [
       });
     }
 
+    const oldData = bankAccount.toObject ? bankAccount.toObject() : { ...bankAccount._doc };
+
     // Check if name is being changed and if new name already exists
     if (name && name.trim() !== bankAccount.name) {
       const existingAccount = await BankAccount.findOne({ name: name.trim() });
@@ -599,6 +612,18 @@ router.put('/bank-accounts/:id', [
 
     await bankAccount.save();
 
+    const newData = bankAccount.toObject ? bankAccount.toObject() : { ...bankAccount._doc };
+    await logActivity({
+      userId: req.user.id,
+      action: 'MANUAL_EDIT',
+      module: 'FINANCE',
+      entityId: bankAccount._id,
+      entityType: 'BankAccount',
+      oldData,
+      newData,
+      req
+    });
+
     res.json({
       success: true,
       message: 'Bank account updated successfully',
@@ -615,10 +640,10 @@ router.put('/bank-accounts/:id', [
 
 /**
  * @route   DELETE /api/finance/bank-accounts/:id
- * @desc    Delete a bank account (Admin only)
- * @access  Private (Admin)
+ * @desc    Delete a bank account (Admin or Finance manager)
+ * @access  Private
  */
-router.delete('/bank-accounts/:id', protect, authorize('admin'), async (req, res) => {
+router.delete('/bank-accounts/:id', protect, authorizeDepartment('Finance'), async (req, res) => {
   try {
     const bankAccount = await BankAccount.findById(req.params.id);
 
@@ -638,7 +663,18 @@ router.delete('/bank-accounts/:id', protect, authorize('admin'), async (req, res
       });
     }
 
+    const oldData = bankAccount.toObject ? bankAccount.toObject() : { ...bankAccount._doc };
     await BankAccount.findByIdAndDelete(req.params.id);
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'DELETE',
+      module: 'FINANCE',
+      entityId: bankAccount._id,
+      entityType: 'BankAccount',
+      oldData,
+      req
+    });
 
     res.json({
       success: true,

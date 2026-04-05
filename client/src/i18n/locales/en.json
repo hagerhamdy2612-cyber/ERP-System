@@ -44,6 +44,10 @@
     "transaction": "Transaction",
     "unknown": "Unknown"
   },
+  "validation": {
+    "phoneInvalid": "Enter a valid phone number (7–12 digits). Spaces, dashes, parentheses, and + are allowed.",
+    "phoneHint": "7–12 digits; +, spaces, dashes, and parentheses allowed"
+  },
   "finance": {
     "title": "Finance",
     "dashboard": {
@@ -105,7 +109,7 @@
       "updating": "Updating...",
       "deleteConfirm": "Are you sure you want to delete this bank account? This action cannot be undone.",
       "accessDenied": "Access Denied",
-      "accessDeniedDesc": "Only administrators can manage bank accounts.",
+      "accessDeniedDesc": "Only administrators and Finance managers can manage bank accounts.",
       "noAccounts": "No bank accounts found. Click \"Add Bank Account\" to create one.",
       "balanceNote": "Note: Changing balance here will update the account balance directly.",
       "initialBalanceNote": "Set the initial balance for this account."

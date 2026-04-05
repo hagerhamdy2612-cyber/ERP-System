@@ -72,9 +72,18 @@ const purchaseOrderSchema = new mongoose.Schema({
     type: String,
     enum: ['manual', 'inventory'],
     default: 'manual'
-  }
+  },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
   timestamps: true
+});
+
+purchaseOrderSchema.pre(/^find/, function () {
+  if (!this.getOptions().includeDeleted) {
+    this.where({ isDeleted: { $ne: true } });
+  }
 });
 
 module.exports = mongoose.model('PurchaseOrder', purchaseOrderSchema);

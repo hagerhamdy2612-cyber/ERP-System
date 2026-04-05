@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, X, Wallet } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageFinanceBankAccounts } from '../../config/permissions';
 
 const FinanceBankAccounts = () => {
   const { t } = useTranslation();
@@ -20,7 +21,7 @@ const FinanceBankAccounts = () => {
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
-    if (user?.role === 'admin') {
+    if (canManageFinanceBankAccounts(user)) {
       fetchBankAccounts();
     }
   }, [user]);
@@ -116,13 +117,12 @@ const FinanceBankAccounts = () => {
     });
   };
 
-  // Only show for admin
-  if (user?.role !== 'admin') {
+  if (!canManageFinanceBankAccounts(user)) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-lg font-medium text-gray-900 mb-2">Access Denied</p>
-          <p className="text-sm text-gray-500">Only administrators can manage bank accounts.</p>
+          <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('finance.bankAccounts.accessDenied')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('finance.bankAccounts.accessDeniedDesc')}</p>
         </div>
       </div>
     );

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageFinanceBankAccounts } from '../../config/permissions';
 import Card from '../../components/Card';
 import { Wallet, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 
@@ -30,8 +31,7 @@ const FinanceBank = () => {
     }
   };
 
-  // Check if user is admin
-  if (user && user.role !== 'admin') {
+  if (user && !canManageFinanceBankAccounts(user)) {
     return <Navigate to="/app/finance/dashboard" replace />;
   }
 
