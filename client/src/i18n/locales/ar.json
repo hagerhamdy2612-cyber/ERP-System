@@ -43,6 +43,7 @@
     "balance": "الرصيد",
     "transaction": "المعاملة",
     "unknown": "غير معروف",
+    "saving": "جاري الحفظ...",
     "quantity": "الكمية",
     "count": "العدد",
     "optional": "اختياري",
@@ -165,6 +166,55 @@
       "editRestricted": "يمكن للمديرين والموظفين غير الموارد البشرية فقط تعديل المستخدمين. يرجى الاتصال بالمدير أو الموظف غير الموارد البشرية.",
       "deleteRestricted": "يمكن للمديرين والموظفين غير الموارد البشرية فقط حذف المستخدمين. يرجى الاتصال بالمدير أو الموظف غير الموارد البشرية.",
       "adminOnly": "يمكن للمديرين فقط إنشاء أو تعديل المستخدمين. يرجى الاتصال بالمدير."
+    },
+    "recruitment": {
+      "applicantsTitle": "المتقدمون",
+      "applicantsSubtitle": "مسار التوظيف وتتبع المتقدمين",
+      "addApplicant": "إضافة متقدم",
+      "addApplicantTitle": "إضافة متقدم",
+      "backToList": "العودة إلى القائمة",
+      "searchPlaceholder": "البحث بالاسم أو الهاتف أو الوظيفة...",
+      "filterStatus": "كل الحالات",
+      "filterJobPlaceholder": "تصفية حسب مسمى الوظيفة...",
+      "filterSource": "كل المصادر",
+      "colName": "الاسم",
+      "colPhone": "الهاتف",
+      "colJob": "الوظيفة",
+      "colStatus": "الحالة",
+      "colSource": "المصدر",
+      "colActions": "إجراءات",
+      "viewDetails": "عرض التفاصيل",
+      "changeStatus": "تغيير الحالة",
+      "changeStatusTitle": "تحديث الحالة",
+      "noApplicants": "لا يوجد متقدمون.",
+      "paginationSummary": "عرض {{from}}–{{to}} من {{total}}",
+      "job": "الوظيفة",
+      "jobTitlePlaceholder": "مثال: مندوب مبيعات، عامل مستودع",
+      "source": "المصدر",
+      "selectSource": "اختر المصدر",
+      "cv": "السيرة الذاتية",
+      "cvHint": "PDF أو DOC أو DOCX — بحد أقصى 10 ميجابايت",
+      "submitApplicant": "إرسال الطلب",
+      "sectionDetails": "تفاصيل المتقدم",
+      "sectionInterview": "المقابلة",
+      "interviewTime": "الوقت",
+      "interviewType": "نوع المقابلة",
+      "selectInterviewType": "اختر النوع",
+      "saveInterview": "حفظ المقابلة",
+      "openCv": "فتح السيرة الذاتية",
+      "createdAt": "تاريخ الإنشاء",
+      "notFound": "المتقدم غير موجود.",
+      "status": {
+        "pending": "قيد الانتظار",
+        "contacted": "تم التواصل",
+        "interview": "مقابلة",
+        "accepted": "مقبول",
+        "rejected": "مرفوض"
+      },
+      "errors": {
+        "loadApplicants": "فشل تحميل المتقدمين",
+        "loadApplicant": "فشل تحميل بيانات المتقدم"
+      }
     },
     "dashboard": {
       "title": "لوحة تحكم الموارد البشرية",
@@ -436,7 +486,8 @@
     "allProducts": "جميع المنتجات",
     "rawMaterials": "المواد الخام",
     "finalProducts": "المنتجات النهائية",
-    "others": "أخرى"
+    "others": "أخرى",
+    "recruitment": "التوظيف"
   },
   "messages": {
     "loginSuccess": "تم تسجيل الدخول بنجاح",

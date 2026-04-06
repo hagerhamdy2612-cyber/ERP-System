@@ -105,6 +105,9 @@ playwright-report/
 *.key
 .certificates/
 
+# Uploaded files (e.g. recruitment CVs)
+server/uploads/
+
 # Local development
 .local/
 local/

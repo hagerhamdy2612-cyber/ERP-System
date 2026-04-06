@@ -74,7 +74,8 @@ const Layout = () => {
         { name: 'Employees', href: '/app/hr/employees' },
         { name: 'Attendance', href: '/app/hr/attendance' },
         { name: 'Attendance Report', href: '/app/hr/attendance-report' },
-        { name: 'Reports', href: '/app/hr/reports' }
+        { name: 'Reports', href: '/app/hr/reports' },
+        { name: 'Recruitment', href: '/app/hr/recruitment/applicants' }
       ]
     },
     { 

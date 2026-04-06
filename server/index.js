@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -12,6 +13,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -21,6 +23,8 @@ mongoose.connect(process.env.MONGODB_URI)
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/hr', require('./routes/hr'));
+app.use('/api/jobs', require('./routes/jobs'));
+app.use('/api/applicants', require('./routes/applicants'));
 app.use('/api/manufacturing', require('./routes/manufacturing'));
 app.use('/api/scm', require('./routes/scm'));
 app.use('/api/crm', require('./routes/crm'));

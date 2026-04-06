@@ -42,7 +42,8 @@
     "type": "Type",
     "balance": "Balance",
     "transaction": "Transaction",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "saving": "Saving..."
   },
   "validation": {
     "phoneInvalid": "Enter a valid phone number (7–12 digits). Spaces, dashes, parentheses, and + are allowed.",
@@ -158,6 +159,55 @@
       "editRestricted": "Only administrators, managers, and non-HR employees can edit users. Please contact your admin, manager, or non-HR employee.",
       "deleteRestricted": "Only administrators, managers, and non-HR employees can delete users. Please contact your admin, manager, or non-HR employee.",
       "adminOnly": "Only administrators can create or edit users. Please contact your admin."
+    },
+    "recruitment": {
+      "applicantsTitle": "Applicants",
+      "applicantsSubtitle": "Recruitment pipeline and applicant tracking",
+      "addApplicant": "Add applicant",
+      "addApplicantTitle": "Add applicant",
+      "backToList": "Back to applicants",
+      "searchPlaceholder": "Search by name, phone, or job...",
+      "filterStatus": "All statuses",
+      "filterJobPlaceholder": "Filter by job title...",
+      "filterSource": "All sources",
+      "colName": "Name",
+      "colPhone": "Phone",
+      "colJob": "Job",
+      "colStatus": "Status",
+      "colSource": "Source",
+      "colActions": "Actions",
+      "viewDetails": "View details",
+      "changeStatus": "Change status",
+      "changeStatusTitle": "Update status",
+      "noApplicants": "No applicants found.",
+      "paginationSummary": "Showing {{from}}–{{to}} of {{total}}",
+      "job": "Job",
+      "jobTitlePlaceholder": "e.g. Sales Associate, Warehouse Operator",
+      "source": "Source",
+      "selectSource": "Select source",
+      "cv": "CV",
+      "cvHint": "PDF, DOC, or DOCX — max 10 MB",
+      "submitApplicant": "Submit applicant",
+      "sectionDetails": "Applicant details",
+      "sectionInterview": "Interview",
+      "interviewTime": "Time",
+      "interviewType": "Interview type",
+      "selectInterviewType": "Select type",
+      "saveInterview": "Save interview",
+      "openCv": "Open CV",
+      "createdAt": "Created",
+      "notFound": "Applicant not found.",
+      "status": {
+        "pending": "Pending",
+        "contacted": "Contacted",
+        "interview": "Interview",
+        "accepted": "Accepted",
+        "rejected": "Rejected"
+      },
+      "errors": {
+        "loadApplicants": "Failed to load applicants",
+        "loadApplicant": "Failed to load applicant"
+      }
     }
   },
   "sales": {
@@ -374,7 +424,8 @@
     "allProducts": "All Products",
     "rawMaterials": "Raw Materials",
     "finalProducts": "Final Products",
-    "others": "Others"
+    "others": "Others",
+    "recruitment": "Recruitment"
   },
   "messages": {
     "loginSuccess": "Login successful",

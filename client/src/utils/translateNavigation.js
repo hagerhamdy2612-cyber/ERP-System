@@ -26,7 +26,8 @@ export const translateNavigationItem = (name, t) => {
     'Manage Accounts': t('navigation.manageAccounts'),
     'Transactions': t('common.transactions'),
     'Bank': t('common.bank'),
-    'Expenses': t('common.expenses')
+    'Expenses': t('common.expenses'),
+    'Recruitment': t('navigation.recruitment')
   };
   
   return translationMap[name] || name;

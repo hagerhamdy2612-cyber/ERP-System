@@ -15,6 +15,9 @@ import HREmployees from './pages/HR/Employees';
 import HRAttendance from './pages/HR/Attendance';
 import HRAttendanceReport from './pages/HR/AttendanceReport';
 import HRReports from './pages/HR/Reports';
+import HRRecruitmentApplicants from './pages/HR/Recruitment/ApplicantsList';
+import HRRecruitmentAddApplicant from './pages/HR/Recruitment/AddApplicant';
+import HRRecruitmentApplicantDetail from './pages/HR/Recruitment/ApplicantDetail';
 import ManufacturingDashboard from './pages/Manufacturing/Dashboard';
 import ManufacturingOrders from './pages/Manufacturing/Orders';
 import ManufacturingReports from './pages/Manufacturing/Reports';
@@ -177,6 +180,21 @@ function App() {
               <Route path="hr/reports" element={
                 <ProtectedModuleRoute module="hr">
                   <HRReports />
+                </ProtectedModuleRoute>
+              } />
+              <Route path="hr/recruitment/applicants/new" element={
+                <ProtectedModuleRoute module="hr">
+                  <HRRecruitmentAddApplicant />
+                </ProtectedModuleRoute>
+              } />
+              <Route path="hr/recruitment/applicants/:id" element={
+                <ProtectedModuleRoute module="hr">
+                  <HRRecruitmentApplicantDetail />
+                </ProtectedModuleRoute>
+              } />
+              <Route path="hr/recruitment/applicants" element={
+                <ProtectedModuleRoute module="hr">
+                  <HRRecruitmentApplicants />
                 </ProtectedModuleRoute>
               } />
               
