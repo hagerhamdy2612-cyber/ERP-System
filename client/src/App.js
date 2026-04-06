@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedModuleRoute from './components/ProtectedModuleRoute';
+import ProtectedRecruitmentRoute from './components/ProtectedRecruitmentRoute';
 import ProtectedDashboardRoute from './components/ProtectedDashboardRoute';
 import { canShowAttendanceInModule } from './config/permissions';
 import Layout from './components/Layout';
@@ -183,19 +184,19 @@ function App() {
                 </ProtectedModuleRoute>
               } />
               <Route path="hr/recruitment/applicants/new" element={
-                <ProtectedModuleRoute module="hr">
+                <ProtectedRecruitmentRoute>
                   <HRRecruitmentAddApplicant />
-                </ProtectedModuleRoute>
+                </ProtectedRecruitmentRoute>
               } />
               <Route path="hr/recruitment/applicants/:id" element={
-                <ProtectedModuleRoute module="hr">
+                <ProtectedRecruitmentRoute>
                   <HRRecruitmentApplicantDetail />
-                </ProtectedModuleRoute>
+                </ProtectedRecruitmentRoute>
               } />
               <Route path="hr/recruitment/applicants" element={
-                <ProtectedModuleRoute module="hr">
+                <ProtectedRecruitmentRoute>
                   <HRRecruitmentApplicants />
-                </ProtectedModuleRoute>
+                </ProtectedRecruitmentRoute>
               } />
               
               {/* Manufacturing Routes - Only for Manufacturing department and admins */}

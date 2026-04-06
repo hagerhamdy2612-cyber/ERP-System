@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getUserAllowedModules, MODULE_NAMES, canShowAttendanceInModule, canAccessDashboardRoute, canManageFinanceBankAccounts } from '../config/permissions';
+import { getUserAllowedModules, MODULE_NAMES, canShowAttendanceInModule, canAccessDashboardRoute, canManageFinanceBankAccounts, canAccessRecruitment } from '../config/permissions';
 import LanguageSwitcher from './LanguageSwitcher';
 import { translateNavigationItem } from '../utils/translateNavigation';
 import {
@@ -187,6 +187,9 @@ const Layout = () => {
           return false;
         }
         if (child.financeBankAccess && !canManageFinanceBankAccounts(user)) {
+          return false;
+        }
+        if (child.href?.includes('/hr/recruitment') && !canAccessRecruitment(user)) {
           return false;
         }
         return true;

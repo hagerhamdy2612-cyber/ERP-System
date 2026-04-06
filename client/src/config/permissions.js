@@ -169,6 +169,13 @@ export const canManageFinanceBankAccounts = (user) => {
   return user.role === 'manager' && user.department === 'Finance';
 };
 
+/** HR Recruitment (applicants): admin or HR department manager only */
+export const canAccessRecruitment = (user) => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return user.role === 'manager' && user.department === 'HR';
+};
+
 // Helper function to check if user can perform an action
 export const canPerformAction = (user, action) => {
   if (!user) return false;

@@ -146,14 +146,14 @@ const authorizeReceivePurchaseOrder = (req, res, next) => {
   }
 };
 
-// Recruitment: admin or anyone in HR department
+// Recruitment: administrators or HR department managers only (not HR employees)
 const authorizeHRRecruitment = (req, res, next) => {
-  if (req.user.role === 'admin' || req.user.department === 'HR') {
+  if (req.user.role === 'admin' || (req.user.role === 'manager' && req.user.department === 'HR')) {
     return next();
   }
   return res.status(403).json({
     success: false,
-    message: 'Access denied. Only administrators and HR department users can access recruitment.'
+    message: 'Access denied. Only administrators and HR managers can access recruitment.'
   });
 };
 
