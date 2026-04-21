@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { Plus, Package, AlertTriangle, Edit, Trash2, Layers } from 'lucide-react';
 
 const FinishedProducts = () => {
+  const { t } = useTranslation();
   const [products, setProducts] = useState([]);
   const [rawMaterials, setRawMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ const FinishedProducts = () => {
     try {
       const response = await axios.get('/api/inventory/products');
       const all = response.data.data || [];
-      setRawMaterials(all.filter(p => p.category === 'raw-material' || p.category === 'others'));
+      setRawMaterials(all.filter((p) => p.category === 'raw-material'));
     } catch (err) {
       console.error('Failed to fetch raw materials', err);
     }
@@ -43,7 +45,7 @@ const FinishedProducts = () => {
       console.log('✅ Final Products fetched:', response.data.data?.length || 0);
     } catch (error) {
       console.error('❌ Failed to fetch final products:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch final products');
+      toast.error(error.response?.data?.message || t('inventory.finishedProducts.errors.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -60,13 +62,13 @@ const FinishedProducts = () => {
       };
       if (editingProduct) {
         await axios.put(`/api/inventory/products/${editingProduct._id}`, payload);
-        toast.success('Finished product updated successfully');
+        toast.success(t('inventory.finishedProducts.messages.updated'));
       } else {
         await axios.post('/api/inventory/products', {
           ...payload,
           category: 'final-product'
         });
-        toast.success('Finished product created successfully');
+        toast.success(t('inventory.finishedProducts.messages.created'));
       }
       setShowModal(false);
       setEditingProduct(null);
@@ -84,7 +86,7 @@ const FinishedProducts = () => {
       });
       fetchProducts();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save finished product');
+      toast.error(error.response?.data?.message || t('inventory.finishedProducts.errors.saveFailed'));
     }
   };
 
@@ -113,14 +115,14 @@ const FinishedProducts = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this finished product?')) {
+    if (window.confirm(t('inventory.finishedProducts.deleteConfirm'))) {
       try {
         await axios.delete(`/api/inventory/products/${id}`);
-        toast.success('Finished product deleted successfully');
+        toast.success(t('inventory.finishedProducts.messages.deleted'));
         fetchProducts();
       } catch (error) {
         console.error('Delete error:', error);
-        toast.error(error.response?.data?.message || 'Failed to delete finished product');
+        toast.error(error.response?.data?.message || t('inventory.finishedProducts.errors.deleteFailed'));
       }
     }
   };
@@ -130,9 +132,9 @@ const FinishedProducts = () => {
   };
 
   const getStockStatus = (product) => {
-    if (product.currentStock === 0) return { color: 'text-red-600', bg: 'bg-red-100', text: 'Out of Stock' };
-    if (isLowStock(product)) return { color: 'text-yellow-600', bg: 'bg-yellow-100', text: 'Low Stock' };
-    return { color: 'text-green-600', bg: 'bg-green-100', text: 'In Stock' };
+    if (product.currentStock === 0) return { color: 'text-red-600', bg: 'bg-red-100', text: t('inventory.status.outOfStock') };
+    if (isLowStock(product)) return { color: 'text-yellow-600', bg: 'bg-yellow-100', text: t('inventory.status.lowStock') };
+    return { color: 'text-green-600', bg: 'bg-green-100', text: t('inventory.status.inStock') };
   };
 
   const calculateProfitMargin = (product) => {
@@ -153,9 +155,9 @@ const FinishedProducts = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Final Products</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('inventory.finishedProducts.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage final products inventory and pricing
+            {t('inventory.finishedProducts.description')}
           </p>
         </div>
         <button
@@ -178,7 +180,7 @@ const FinishedProducts = () => {
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Final Product
+          {t('inventory.finishedProducts.add')}
         </button>
       </div>
 
@@ -189,10 +191,10 @@ const FinishedProducts = () => {
             <AlertTriangle className="h-5 w-5 text-yellow-400" />
             <div className="ml-3">
               <h3 className="text-sm font-medium text-yellow-800">
-                Low Stock Alert
+                {t('inventory.finishedProducts.lowStockAlert')}
               </h3>
               <div className="mt-2 text-sm text-yellow-700">
-                <p>{products.filter(isLowStock).length} finished product(s) are running low on stock.</p>
+                <p>{t('inventory.finishedProducts.lowStockMessage', { count: products.filter(isLowStock).length })}</p>
               </div>
             </div>
           </div>
@@ -224,47 +226,47 @@ const FinishedProducts = () => {
                 
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Current Stock</span>
+                    <span className="text-gray-500">{t('inventory.finishedProducts.currentStock')}</span>
                     <span className={`font-medium ${stockStatus.color}`}>
                       {product.currentStock} {product.unit}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Min Level</span>
+                    <span className="text-gray-500">{t('inventory.finishedProducts.minLevel')}</span>
                     <span className="text-gray-900">{product.minStockLevel} {product.unit}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Unit Cost</span>
+                    <span className="text-gray-500">{t('inventory.finishedProducts.unitCost')}</span>
                     <span className="text-gray-900">${product.unitCost}</span>
                   </div>
                   {product.sellingPrice && (
                     <div className="mt-2 flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Selling Price</span>
+                      <span className="text-gray-500">{t('inventory.finishedProducts.sellingPrice')}</span>
                       <span className="text-gray-900">${product.sellingPrice}</span>
                     </div>
                   )}
                   {product.sellingPrice && (
                     <div className="mt-2 flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Profit Margin</span>
+                      <span className="text-gray-500">{t('inventory.finishedProducts.profitMargin')}</span>
                       <span className={`font-medium ${profitMargin > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {profitMargin}%
                       </span>
                     </div>
                   )}
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Total Value</span>
+                    <span className="text-gray-500">{t('inventory.finishedProducts.totalValue')}</span>
                     <span className="text-gray-900">${(product.currentStock * product.unitCost).toLocaleString()}</span>
                   </div>
                   {product.requiredMaterials && product.requiredMaterials.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
                       <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
                         <Layers className="h-3.5 w-3.5" />
-                        Required raw materials
+                        {t('inventory.finishedProducts.requiredRawMaterials')}
                       </p>
                       <ul className="mt-1.5 space-y-1">
                         {product.requiredMaterials.map((rm, idx) => (
                           <li key={idx} className="text-xs text-gray-600 flex justify-between">
-                            <span>{rm.product?.name || '—'}</span>
+                            <span>{rm.product?.name || t('common.unknown')}</span>
                             <span className="font-medium">{rm.quantity} {rm.product?.unit || ''}</span>
                           </li>
                         ))}
@@ -304,12 +306,12 @@ const FinishedProducts = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {editingProduct ? 'Edit Final Product' : 'Add Final Product'}
+                {editingProduct ? t('inventory.finishedProducts.edit') : t('inventory.finishedProducts.add')}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Product Name
+                    {t('inventory.finishedProducts.productName')}
                   </label>
                   <input
                     type="text"
@@ -321,7 +323,7 @@ const FinishedProducts = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    SKU
+                    {t('inventory.finishedProducts.sku')}
                   </label>
                   <input
                     type="text"
@@ -333,7 +335,7 @@ const FinishedProducts = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Unit
+                    {t('inventory.finishedProducts.unit')}
                   </label>
                   <input
                     type="text"
@@ -346,7 +348,7 @@ const FinishedProducts = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Current Stock
+                      {t('inventory.finishedProducts.currentStock')}
                     </label>
                     <input
                       type="number"
@@ -358,7 +360,7 @@ const FinishedProducts = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Unit Cost
+                      {t('inventory.finishedProducts.unitCost')}
                     </label>
                     <input
                       type="number"
@@ -373,7 +375,7 @@ const FinishedProducts = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Min Stock Level
+                      {t('inventory.finishedProducts.minStockLevel')}
                     </label>
                     <input
                       type="number"
@@ -385,7 +387,7 @@ const FinishedProducts = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Max Stock Level
+                      {t('inventory.finishedProducts.maxStockLevel')}
                     </label>
                     <input
                       type="number"
@@ -398,7 +400,7 @@ const FinishedProducts = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Selling Price
+                    {t('inventory.finishedProducts.sellingPrice')}
                   </label>
                   <input
                     type="number"
@@ -410,7 +412,7 @@ const FinishedProducts = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Description
+                    {t('inventory.finishedProducts.descriptionLabel')}
                   </label>
                   <textarea
                     value={formData.description}
@@ -421,10 +423,10 @@ const FinishedProducts = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Required Raw Materials (from Inventory)
+                    {t('inventory.finishedProducts.requiredRawMaterialsFromInventory')}
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Choose raw materials needed to make this final product. Used when creating production orders in Manufacturing.
+                    {t('inventory.finishedProducts.requiredRawMaterialsHint')}
                   </p>
                   {(formData.requiredMaterials || [{ product: '', quantity: '' }]).map((rm, index) => (
                     <div key={index} className="flex gap-2 items-center mb-2">
@@ -437,7 +439,7 @@ const FinishedProducts = () => {
                         }}
                         className="flex-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                       >
-                        <option value="">Select raw material</option>
+                        <option value="">{t('inventory.finishedProducts.selectRawMaterial')}</option>
                         {rawMaterials.map(p => (
                           <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>
                         ))}
@@ -445,7 +447,7 @@ const FinishedProducts = () => {
                       <input
                         type="number"
                         min="1"
-                        placeholder="Qty"
+                        placeholder={t('inventory.finishedProducts.qtyPlaceholder')}
                         value={rm.quantity}
                         onChange={(e) => {
                           const next = [...(formData.requiredMaterials || [])];
@@ -476,7 +478,7 @@ const FinishedProducts = () => {
                     })}
                     className="text-sm text-primary-600 hover:text-primary-800"
                   >
-                    + Add raw material
+                    {t('inventory.finishedProducts.addRawMaterial')}
                   </button>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
@@ -488,13 +490,13 @@ const FinishedProducts = () => {
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
                   >
-                    {editingProduct ? 'Update' : 'Create'}
+                    {editingProduct ? t('common.update') : t('common.create')}
                   </button>
                 </div>
               </form>

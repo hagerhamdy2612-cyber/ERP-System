@@ -188,7 +188,7 @@ const seedData = async () => {
         name: 'Electronic Components',
         sku: 'EC-003',
         description: 'Various electronic components',
-        category: 'others',
+        category: 'raw-material',
         unit: 'units',
         currentStock: 2000,
         minStockLevel: 500,

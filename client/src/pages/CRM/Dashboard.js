@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/Card';
 import {
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 const CRMDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [kpis, setKpis] = useState(null);
   const [recentCustomers, setRecentCustomers] = useState([]);
@@ -71,9 +73,9 @@ const CRMDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CRM Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('crm.dashboard.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Overview of customer relationship management
+          {t('crm.dashboard.description')}
         </p>
       </div>
 
@@ -90,7 +92,7 @@ const CRMDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Customers
+                    {t('crm.dashboard.totalCustomers')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalCustomers || 0}
@@ -112,7 +114,7 @@ const CRMDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Active Customers
+                    {t('crm.dashboard.activeCustomers')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.activeCustomers || 0}
@@ -158,7 +160,7 @@ const CRMDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    New Customers (30 days)
+                    {t('crm.dashboard.newCustomers')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.newCustomers || 0}
@@ -174,14 +176,14 @@ const CRMDashboard = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-            Recent Customers
+            {t('crm.dashboard.recentCustomers')}
           </h3>
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-slate-700">
           {recentCustomers.length === 0 ? (
             <li className="px-4 py-5 sm:px-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                No customers yet
+                {t('crm.dashboard.noCustomers')}
               </p>
             </li>
           ) : (
@@ -200,7 +202,7 @@ const CRMDashboard = () => {
                             <span className="mx-2">•</span>
                           </>
                         )}
-                        <span>{customer.email || 'No email'}</span>
+                        <span>{customer.email || t('crm.dashboard.noEmail')}</span>
                         {customer.phone && (
                           <>
                             <span className="mx-2">•</span>
@@ -212,7 +214,7 @@ const CRMDashboard = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${customer.isActive !== false ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-400' : 'bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300'}`}>
-                      {customer.isActive !== false ? 'Active' : 'Inactive'}
+                      {customer.isActive !== false ? t('crm.dashboard.active') : t('crm.dashboard.inactive')}
                     </span>
                   </div>
                 </div>

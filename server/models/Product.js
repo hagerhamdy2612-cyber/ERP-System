@@ -15,7 +15,7 @@ const productSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['raw-material', 'final-product', 'others'],
+    enum: ['raw-material', 'final-product'],
     required: true
   },
   unit: {
@@ -24,7 +24,8 @@ const productSchema = new mongoose.Schema({
   },
   currentStock: {
     type: Number,
-    default: 0
+    default: 0,
+    min: 0
   },
   minStockLevel: {
     type: Number,

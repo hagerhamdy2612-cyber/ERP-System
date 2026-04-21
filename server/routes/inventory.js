@@ -8,8 +8,37 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const ProductionOrder = require('../models/ProductionOrder');
 const { protect, authorize } = require('../middleware/auth');
 const { archiveDocument } = require('../services/archiveService');
+const {
+  shouldTriggerAutoPurchaseForProduct,
+  lowStockProductMongoFilter,
+  lowStockMongoExpr
+} = require('../utils/autoPurchaseLowStock');
 
 const router = express.Router();
+
+/** Empty string from forms is not a valid ObjectId — use null so Mongoose can clear optional refs. */
+function sanitizeProductPayload(body) {
+  if (!body || typeof body !== 'object') {
+    return {};
+  }
+  const data = { ...body };
+  if (data.supplier === '' || data.supplier === undefined) {
+    data.supplier = null;
+  } else if (typeof data.supplier === 'string' && !mongoose.Types.ObjectId.isValid(data.supplier)) {
+    data.supplier = null;
+  }
+  if (Array.isArray(data.requiredMaterials)) {
+    data.requiredMaterials = data.requiredMaterials
+      .filter((m) => m && m.product && mongoose.Types.ObjectId.isValid(String(m.product)))
+      .map((m) => ({
+        product: m.product,
+        quantity: Number(m.quantity) || 0
+      }));
+  } else {
+    delete data.requiredMaterials;
+  }
+  return data;
+}
 
 // @route   GET /api/inventory/products
 // @desc    Get all products
@@ -20,24 +49,11 @@ router.get('/products', protect, async (req, res) => {
     let query = { isActive: true };
 
     if (category) {
-      // Handle category migration: fetch both old and new category names
       if (category === 'final-product') {
-        // Fetch both 'finished-good' (old) and 'final-product' (new)
         query.category = { $in: ['finished-good', 'final-product'] };
-        
-        // Optionally update old products to new category in background
         Product.updateMany(
           { category: 'finished-good' },
           { $set: { category: 'final-product' } }
-        ).catch(err => console.error('Error updating category:', err));
-      } else if (category === 'others') {
-        // Fetch both 'component' (old) and 'others' (new)
-        query.category = { $in: ['component', 'others'] };
-        
-        // Optionally update old products to new category in background
-        Product.updateMany(
-          { category: 'component' },
-          { $set: { category: 'others' } }
         ).catch(err => console.error('Error updating category:', err));
       } else {
         query.category = category;
@@ -45,7 +61,7 @@ router.get('/products', protect, async (req, res) => {
     }
 
     if (lowStock === 'true') {
-      query.$expr = { $lte: ['$currentStock', '$minStockLevel'] };
+      query.$expr = lowStockMongoExpr();
     }
 
     const products = await Product.find(query)
@@ -75,7 +91,7 @@ router.post('/products', [
   authorize('admin', 'manager'),
   body('name').notEmpty().withMessage('Product name is required'),
   body('sku').notEmpty().withMessage('SKU is required'),
-  body('category').isIn(['raw-material', 'final-product', 'others']).withMessage('Valid category is required'),
+  body('category').isIn(['raw-material', 'final-product']).withMessage('Valid category is required'),
   body('unit').notEmpty().withMessage('Unit is required'),
   body('unitCost').isNumeric().withMessage('Valid unit cost is required')
 ], async (req, res) => {
@@ -89,10 +105,10 @@ router.post('/products', [
       });
     }
 
-    const product = await Product.create(req.body);
+    const product = await Product.create(sanitizeProductPayload(req.body));
 
     // Check if raw material stock is low and trigger auto PO generation
-    if (product.category === 'raw-material' && product.currentStock <= product.minStockLevel && product.supplier) {
+    if (shouldTriggerAutoPurchaseForProduct(product)) {
       const schedulerService = require('../services/schedulerService');
       schedulerService.generateAutoPurchaseOrders().catch(err => {
         console.error('Error generating auto POs after product creation:', err);
@@ -120,11 +136,15 @@ router.put('/products/:id', [
   authorize('admin', 'manager')
 ], async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid product id' });
+    }
+
+    const payload = sanitizeProductPayload(req.body);
+    const product = await Product.findByIdAndUpdate(req.params.id, payload, {
+      new: true,
+      runValidators: true
+    });
 
     if (!product) {
       return res.status(404).json({
@@ -134,7 +154,7 @@ router.put('/products/:id', [
     }
 
     // Check if raw material stock is low and trigger auto PO generation
-    if (product.category === 'raw-material' && product.currentStock <= product.minStockLevel && product.supplier) {
+    if (shouldTriggerAutoPurchaseForProduct(product)) {
       const schedulerService = require('../services/schedulerService');
       schedulerService.generateAutoPurchaseOrders().catch(err => {
         console.error('Error generating auto POs after product update:', err);
@@ -212,7 +232,7 @@ router.post('/products/:id/adjust', [
     });
 
     // Check if raw material stock is low and trigger auto PO generation
-    if (product.category === 'raw-material' && product.currentStock <= product.minStockLevel && product.supplier) {
+    if (shouldTriggerAutoPurchaseForProduct(product)) {
       const schedulerService = require('../services/schedulerService');
       schedulerService.generateAutoPurchaseOrders().catch(err => {
         console.error('Error generating auto POs after stock adjustment:', err);
@@ -282,10 +302,7 @@ router.get('/transactions', protect, async (req, res) => {
 // @access  Private
 router.get('/low-stock', protect, async (req, res) => {
   try {
-    const products = await Product.find({
-      $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-      isActive: true
-    })
+    const products = await Product.find(lowStockProductMongoFilter())
     .populate('supplier', 'name contactPerson email')
     .sort({ currentStock: 1 });
 

@@ -7,9 +7,11 @@ const ProductionOrder = require('../models/ProductionOrder');
 const InventoryTransaction = require('../models/InventoryTransaction');
 const Employee = require('../models/Employee');
 const Invoice = require('../models/Invoice');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorizeCreateSalesOrder, authorizeSalesOrderWorkflow } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 const { archiveDocument } = require('../services/archiveService');
+const { applySalesOrderPayrollBonus } = require('../services/salesPayrollBonusService');
+const { shouldTriggerAutoPurchaseForProduct } = require('../utils/autoPurchaseLowStock');
 
 const router = express.Router();
 
@@ -37,6 +39,111 @@ async function getNextInvoiceNumber() {
     if (!Number.isNaN(n) && n > max) max = n;
   }
   return `INV${String(max + 1).padStart(4, '0')}`;
+}
+
+async function getNextProductionOrderNumber() {
+  const orders = await ProductionOrder.find({ orderNumber: { $regex: /^PO\d+$/i } })
+    .select('orderNumber')
+    .setOptions({ includeDeleted: true })
+    .lean();
+  let max = 0;
+  for (const o of orders) {
+    const n = parseInt(String(o.orderNumber).replace(/^PO/i, ''), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return `PO${String(max + 1).padStart(4, '0')}`;
+}
+
+function isManufacturableFinalCategory(category) {
+  return category === 'final-product' || category === 'finished-good';
+}
+
+/** Per line item: shortage qty and BOM materials for that production run. */
+async function buildNeedsProductionEntries(orderItems) {
+  const needsProduction = [];
+  for (const item of orderItems) {
+    const current = await Product.findById(item.product).populate(
+      'requiredMaterials.product',
+      'name sku unitCost'
+    );
+    if (!current) continue;
+
+    const shortageQty =
+      isManufacturableFinalCategory(current.category) && current.currentStock < item.quantity
+        ? item.quantity - current.currentStock
+        : 0;
+
+    if (shortageQty > 0) {
+      const materials = [];
+      for (const rm of current.requiredMaterials || []) {
+        if (!rm?.product) continue;
+        materials.push({
+          product: rm.product._id,
+          quantity: (rm.quantity || 0) * shortageQty,
+          unitCost: rm.product.unitCost ?? 0
+        });
+      }
+      needsProduction.push({
+        product: item.product,
+        quantity: shortageQty,
+        materials
+      });
+    }
+  }
+  return needsProduction;
+}
+
+/** Create or reuse open production orders for each shortage line; sets salesOrder.productionOrder to first link. */
+async function ensureProductionOrdersForShortages(salesOrder, needsProduction) {
+  if (!needsProduction.length) return;
+
+  for (const prod of needsProduction) {
+    const existingOpen = await ProductionOrder.findOne({
+      salesOrder: salesOrder._id,
+      product: prod.product,
+      status: { $in: ['pending', 'in-progress'] }
+    });
+
+    if (!existingOpen) {
+      const orderNumber = await getNextProductionOrderNumber();
+      const productionOrder = await ProductionOrder.create({
+        orderNumber,
+        product: prod.product,
+        quantity: prod.quantity,
+        materials: prod.materials || [],
+        salesOrder: salesOrder._id,
+        status: 'pending'
+      });
+      if (!salesOrder.productionOrder) {
+        salesOrder.productionOrder = productionOrder._id;
+      }
+    } else if (!salesOrder.productionOrder) {
+      salesOrder.productionOrder = existingOpen._id;
+    }
+  }
+  await salesOrder.save();
+}
+
+/** Non–final-product lines must have enough stock at confirmation time (cannot be backordered). */
+async function assertNonFinalProductsInStock(orderItems) {
+  for (const item of orderItems) {
+    const product = await Product.findById(item.product);
+    if (!product) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Product with ID ${item.product} not found`
+      };
+    }
+    if (!isManufacturableFinalCategory(product.category) && product.currentStock < item.quantity) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Insufficient stock for ${product.name}. Required: ${item.quantity}, Available: ${product.currentStock}`
+      };
+    }
+  }
+  return { ok: true };
 }
 
 // @route   GET /api/sales/orders
@@ -81,7 +188,7 @@ router.get('/orders', protect, async (req, res) => {
 // @access  Private (Sales, Admin)
 router.post('/orders', [
   protect,
-  authorize('admin', 'manager'),
+  authorizeCreateSalesOrder,
   body('customer').isMongoId().withMessage('Valid customer ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.product').isMongoId().withMessage('Valid product ID is required'),
@@ -155,10 +262,16 @@ router.post('/orders', [
     const tax = subtotal * 0.1; // 10% tax
     const total = subtotal + tax;
 
-    // Check inventory availability
+    // Allow backorders for final products. Only non-final items must have enough stock now.
     for (const item of processedItems) {
       const product = await Product.findById(item.product);
-      if (product.currentStock < item.quantity) {
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product with ID ${item.product} not found`
+        });
+      }
+      if (!isManufacturableFinalCategory(product.category) && product.currentStock < item.quantity) {
         return res.status(400).json({
           success: false,
           message: `Insufficient stock for ${product.name}. Required: ${item.quantity}, Available: ${product.currentStock}`
@@ -196,6 +309,23 @@ router.post('/orders', [
 
     await salesOrder.populate('customer', 'name email company');
     await salesOrder.populate('items.product', 'name sku');
+
+    const needsOnCreate = await buildNeedsProductionEntries(salesOrder.items);
+    if (needsOnCreate.length > 0) {
+      await ensureProductionOrdersForShortages(salesOrder, needsOnCreate);
+    }
+    await salesOrder.populate('productionOrder', 'orderNumber status');
+
+    if (employee && employee.department === 'Sales') {
+      try {
+        await applySalesOrderPayrollBonus(employee, total, {
+          orderNumber: salesOrder.orderNumber,
+          orderDate: salesOrder.orderDate
+        });
+      } catch (bonusErr) {
+        console.error('Sales order payroll bonus error:', bonusErr);
+      }
+    }
 
     let invoiceNumber = await getNextInvoiceNumber();
     let invExisting = await Invoice.findOne({ invoiceNumber });
@@ -282,14 +412,33 @@ router.post('/orders', [
   }
 });
 
-// @route   PUT /api/sales/orders/:id/confirm
-// @desc    Confirm sales order
+// @route   PUT /api/sales/orders/:id
+// @desc    Update a pending sales order (customer, items, delivery, notes). Recalculates totals and syncs invoice.
 // @access  Private (Sales, Admin)
-router.put('/orders/:id/confirm', [
+router.put('/orders/:id', [
   protect,
-  authorize('admin', 'manager')
+  authorizeCreateSalesOrder,
+  body('customer').isMongoId().withMessage('Valid customer ID is required'),
+  body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
+  body('items.*.product').isMongoId().withMessage('Valid product ID is required'),
+  body('items.*.quantity').custom((value) => {
+    const num = Number(value);
+    if (isNaN(num) || num <= 0) {
+      throw new Error('Valid quantity greater than 0 is required');
+    }
+    return true;
+  })
 ], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
     const salesOrder = await SalesOrder.findById(req.params.id);
     if (!salesOrder) {
       return res.status(404).json({
@@ -301,14 +450,53 @@ router.put('/orders/:id/confirm', [
     if (salesOrder.status !== 'pending') {
       return res.status(400).json({
         success: false,
-        message: 'Sales order is not in pending status'
+        message: 'Only pending sales orders can be edited'
       });
     }
 
-    // Check inventory again
-    for (const item of salesOrder.items) {
+    const { customer, items, deliveryDate, notes } = req.body;
+
+    const processedItems = [];
+    for (const item of items) {
       const product = await Product.findById(item.product);
-      if (product.currentStock < item.quantity) {
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product with ID ${item.product} not found`
+        });
+      }
+      const unitPrice = product.sellingPrice != null && product.sellingPrice > 0
+        ? product.sellingPrice
+        : (product.unitCost != null ? product.unitCost : 0);
+      if (unitPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Product "${product.name}" has no selling price set in inventory. Set selling price in Inventory first.`
+        });
+      }
+      const qty = Number(item.quantity);
+      processedItems.push({
+        product: product._id,
+        quantity: qty,
+        unitPrice,
+        total: qty * unitPrice
+      });
+    }
+
+    let subtotal = processedItems.reduce((sum, item) => sum + item.total, 0);
+    const tax = subtotal * 0.1;
+    const total = subtotal + tax;
+
+    // Allow backorders for final products. Only non-final items must have enough stock now.
+    for (const item of processedItems) {
+      const product = await Product.findById(item.product);
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product with ID ${item.product} not found`
+        });
+      }
+      if (!isManufacturableFinalCategory(product.category) && product.currentStock < item.quantity) {
         return res.status(400).json({
           success: false,
           message: `Insufficient stock for ${product.name}. Required: ${item.quantity}, Available: ${product.currentStock}`
@@ -316,15 +504,133 @@ router.put('/orders/:id/confirm', [
       }
     }
 
-    // Update inventory - reduce stock for all items and create transaction records
+    let parsedDeliveryDate = null;
+    if (deliveryDate) {
+      parsedDeliveryDate = new Date(deliveryDate);
+      if (isNaN(parsedDeliveryDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid delivery date format'
+        });
+      }
+    }
+
+    salesOrder.customer = customer;
+    salesOrder.items = processedItems;
+    salesOrder.subtotal = subtotal;
+    salesOrder.tax = tax;
+    salesOrder.total = total;
+    salesOrder.deliveryDate = parsedDeliveryDate;
+    salesOrder.notes = notes || '';
+
+    await salesOrder.save();
+    await salesOrder.populate('customer', 'name email company');
+    await salesOrder.populate('items.product', 'name sku');
+
+    const invoiceItems = await Promise.all(
+      processedItems.map(async (item) => {
+        const product = await Product.findById(item.product);
+        return {
+          product: item.product,
+          productName: product?.name || 'Unknown Product',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total
+        };
+      })
+    );
+
+    const invoice = await Invoice.findOne({ salesOrder: salesOrder._id });
+    if (invoice) {
+      invoice.customer = customer;
+      invoice.items = invoiceItems;
+      invoice.subtotal = subtotal;
+      invoice.tax = tax;
+      invoice.total = total;
+      invoice.notes = notes || '';
+      await invoice.save();
+    }
+
+    res.json({
+      success: true,
+      data: salesOrder
+    });
+  } catch (error) {
+    console.error('Update sales order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// @route   PUT /api/sales/orders/:id/confirm
+// @desc    Confirm sales order
+// @access  Private (Sales, Admin)
+router.put('/orders/:id/confirm', [
+  protect,
+  authorizeSalesOrderWorkflow
+], async (req, res) => {
+  try {
+    const salesOrder = await SalesOrder.findById(req.params.id);
+    if (!salesOrder) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sales order not found'
+      });
+    }
+
+    if (!['pending', 'in-production'].includes(salesOrder.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sales order must be pending or in production to confirm'
+      });
+    }
+
+    const nonFinalCheck = await assertNonFinalProductsInStock(salesOrder.items);
+    if (!nonFinalCheck.ok) {
+      return res.status(nonFinalCheck.status).json({
+        success: false,
+        message: nonFinalCheck.message
+      });
+    }
+
+    const needsProduction = await buildNeedsProductionEntries(salesOrder.items);
+
+    // Shortage: ensure production orders exist; stay pending until stock covers the order, then user confirms again.
+    if (needsProduction.length > 0) {
+      await ensureProductionOrdersForShortages(salesOrder, needsProduction);
+      await salesOrder.populate('customer', 'name email company');
+      await salesOrder.populate('items.product', 'name sku');
+      await salesOrder.populate('productionOrder', 'orderNumber status');
+
+      return res.status(409).json({
+        success: false,
+        message:
+          'Manufacturing is required before confirmation. Start and complete the linked production order, then confirm this sales order again.',
+        data: salesOrder
+      });
+    }
+
+    // Stock is sufficient: deduct final and non-final lines without allowing negative quantities.
     for (const item of salesOrder.items) {
-      const product = await Product.findByIdAndUpdate(
-        item.product,
+      const product = await Product.findOneAndUpdate(
+        {
+          _id: item.product,
+          currentStock: { $gte: item.quantity }
+        },
         { $inc: { currentStock: -item.quantity } },
         { new: true }
       );
 
-      // Create inventory transaction record
+      if (!product) {
+        const p = await Product.findById(item.product);
+        return res.status(409).json({
+          success: false,
+          message: `Insufficient stock for ${p?.name || 'product'}. Required: ${item.quantity}, Available: ${p?.currentStock ?? 0}. Complete manufacturing or receive stock before confirming.`
+        });
+      }
+
       await InventoryTransaction.create({
         product: item.product,
         type: 'out',
@@ -336,8 +642,7 @@ router.put('/orders/:id/confirm', [
         notes: `Sales order ${salesOrder.orderNumber} - ${item.quantity} units sold`
       });
 
-      // Check if raw material stock is low and trigger auto PO generation
-      if (product.category === 'raw-material' && product.currentStock <= product.minStockLevel && product.supplier) {
+      if (shouldTriggerAutoPurchaseForProduct(product)) {
         const schedulerService = require('../services/schedulerService');
         schedulerService.generateAutoPurchaseOrders().catch(err => {
           console.error('Error generating auto POs after sales confirmation:', err);
@@ -345,39 +650,16 @@ router.put('/orders/:id/confirm', [
       }
     }
 
-    // Update status
     salesOrder.status = 'confirmed';
     await salesOrder.save();
 
-    // Check if production is needed
-    const needsProduction = [];
-    for (const item of salesOrder.items) {
-      const product = await Product.findById(item.product);
-      if (product.category === 'final-product' && product.currentStock < item.quantity) {
-        needsProduction.push({
-          product: item.product,
-          quantity: item.quantity
-        });
-      }
-    }
-
-    // Create production orders if needed
-    if (needsProduction.length > 0) {
-      for (const prod of needsProduction) {
-        const product = await Product.findById(prod.product);
-        const orderCount = await ProductionOrder.countDocuments();
-        const orderNumber = `PO${String(orderCount + 1).padStart(4, '0')}`;
-
-        const productionOrder = await ProductionOrder.create({
-          orderNumber,
-          product: prod.product,
-          quantity: prod.quantity,
-          salesOrder: salesOrder._id,
-          status: 'pending'
-        });
-
-        salesOrder.productionOrder = productionOrder._id;
-        await salesOrder.save();
+    if (salesOrder.productionOrder) {
+      const linkedProd = await ProductionOrder.findById(salesOrder.productionOrder);
+      if (linkedProd && linkedProd.status === 'completed') {
+        // Keep reference for traceability; no action needed.
+      } else if (!linkedProd) {
+        salesOrder.productionOrder = null;
+          await salesOrder.save();
       }
     }
 
@@ -403,7 +685,7 @@ router.put('/orders/:id/confirm', [
 // @access  Private (Sales, Admin)
 router.put('/orders/:id/ship', [
   protect,
-  authorize('admin', 'manager')
+  authorizeSalesOrderWorkflow
 ], async (req, res) => {
   try {
     const salesOrder = await SalesOrder.findById(req.params.id);
@@ -717,7 +999,7 @@ router.get('/export/:type', protect, async (req, res) => {
 // @access  Private (Sales, Admin)
 router.delete('/orders/:id', [
   protect,
-  authorize('admin', 'manager')
+  authorizeSalesOrderWorkflow
 ], async (req, res) => {
   try {
     const salesOrder = await SalesOrder.findById(req.params.id);

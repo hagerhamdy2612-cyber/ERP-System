@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { FileText, Filter, Calendar, User, Building, Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const AttendanceReport = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +53,7 @@ const AttendanceReport = () => {
   // Fetch attendance report
   const fetchReport = async () => {
     if (!filters.dateFrom || !filters.dateTo) {
-      toast.error('Please select date range');
+      toast.error(t('hr.attendanceReport.selectDateRange'));
       return;
     }
 
@@ -74,10 +76,10 @@ const AttendanceReport = () => {
 
       const response = await axios.get('/api/hr/attendance/report', { params });
       setReportData(response.data.data || []);
-      toast.success(`Loaded ${response.data.count || 0} records`);
+      toast.success(t('hr.attendanceReport.loadedRecords', { count: response.data.count || 0 }));
     } catch (error) {
       console.error('Fetch report error:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch attendance report');
+      toast.error(error.response?.data?.message || t('hr.attendanceReport.fetchFailed'));
       setReportData([]);
     } finally {
       setLoading(false);
@@ -113,26 +115,26 @@ const AttendanceReport = () => {
   // Export to CSV
   const exportToCSV = () => {
     if (reportData.length === 0) {
-      toast.error('No data to export');
+      toast.error(t('hr.attendanceReport.noDataToExport'));
       return;
     }
 
     const headers = [
-      'Employee Name',
-      'Employee ID',
-      'Date',
-      'Check-in',
-      'Check-out',
-      'Status',
-      'Total Working Hours',
-      'Expected Start',
-      'Actual Check-in',
-      'Minutes Late',
-      'Expected End',
-      'Actual Check-out',
-      'Minutes Early',
-      'Total Absent Days',
-      'Absence %'
+      t('hr.attendanceReport.employeeName'),
+      t('hr.attendanceReport.employeeId'),
+      t('common.date'),
+      t('hr.attendanceReport.checkIn'),
+      t('hr.attendanceReport.checkOut'),
+      t('hr.attendanceReport.status'),
+      t('hr.attendanceReport.totalWorkingHours'),
+      t('hr.attendanceReport.expectedStart'),
+      t('hr.attendanceReport.actualCheckIn'),
+      t('hr.attendanceReport.minutesLate'),
+      t('hr.attendanceReport.expectedEnd'),
+      t('hr.attendanceReport.actualCheckOut'),
+      t('hr.attendanceReport.minutesEarly'),
+      t('hr.attendanceReport.totalAbsentDays'),
+      t('hr.attendanceReport.absencePercent')
     ];
 
     const csvRows = [
@@ -168,7 +170,7 @@ const AttendanceReport = () => {
     link.click();
     document.body.removeChild(link);
     
-    toast.success('Report exported successfully');
+    toast.success(t('hr.attendanceReport.exportSuccess'));
   };
 
   if (loading && reportData.length === 0) {
@@ -184,9 +186,9 @@ const AttendanceReport = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Attendance & Punctuality Report</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('hr.attendanceReport.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Comprehensive attendance, lateness, early departure, and absence analysis
+            {t('hr.attendanceReport.description')}
           </p>
         </div>
         {reportData.length > 0 && (
@@ -195,7 +197,7 @@ const AttendanceReport = () => {
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {t('hr.attendanceReport.exportCsv')}
           </button>
         )}
       </div>
@@ -204,14 +206,14 @@ const AttendanceReport = () => {
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex items-center mb-4">
           <Filter className="h-5 w-5 text-gray-500 mr-2" />
-          <h2 className="text-lg font-medium text-gray-900">Filters</h2>
+          <h2 className="text-lg font-medium text-gray-900">{t('hr.attendanceReport.filters')}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Date From */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <Calendar className="h-4 w-4 inline mr-1" />
-              Date From
+              {t('hr.attendanceReport.dateFrom')}
             </label>
             <input
               type="date"
@@ -225,7 +227,7 @@ const AttendanceReport = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <Calendar className="h-4 w-4 inline mr-1" />
-              Date To
+              {t('hr.attendanceReport.dateTo')}
             </label>
             <input
               type="date"
@@ -239,14 +241,14 @@ const AttendanceReport = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <User className="h-4 w-4 inline mr-1" />
-              Employee
+              {t('hr.attendanceReport.employee')}
             </label>
             <select
               value={filters.employeeId}
               onChange={handleEmployeeChange}
               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
             >
-              <option value="">All Employees</option>
+              <option value="">{t('hr.attendanceReport.allEmployees')}</option>
               {employees
                 .filter(emp => emp.user)
                 .map((employee) => (
@@ -261,14 +263,14 @@ const AttendanceReport = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <Building className="h-4 w-4 inline mr-1" />
-              Department
+              {t('hr.attendanceReport.department')}
             </label>
             <select
               value={filters.departmentId}
               onChange={(e) => setFilters(prev => ({ ...prev, departmentId: e.target.value }))}
               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
             >
-              <option value="">All Departments</option>
+              <option value="">{t('hr.attendanceReport.allDepartments')}</option>
               {departments.map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}
@@ -288,9 +290,9 @@ const AttendanceReport = () => {
         ) : reportData.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No Data</h3>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">{t('hr.attendanceReport.noData')}</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Select a date range and click search to generate the report
+              {t('hr.attendanceReport.noDataHint')}
             </p>
           </div>
         ) : (
@@ -299,46 +301,46 @@ const AttendanceReport = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                    Employee Name
+                    {t('hr.attendanceReport.employeeName')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                    {t('common.date')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Check-in
+                    {t('hr.attendanceReport.checkIn')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Check-out
+                    {t('hr.attendanceReport.checkOut')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    {t('hr.attendanceReport.status')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Working Hours
+                    {t('hr.attendanceReport.workingHours')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Expected Start
+                    {t('hr.attendanceReport.expectedStart')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actual Check-in
+                    {t('hr.attendanceReport.actualCheckIn')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Minutes Late
+                    {t('hr.attendanceReport.minutesLate')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Expected End
+                    {t('hr.attendanceReport.expectedEnd')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actual Check-out
+                    {t('hr.attendanceReport.actualCheckOut')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Minutes Early
+                    {t('hr.attendanceReport.minutesEarly')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Absent Days
+                    {t('hr.attendanceReport.totalAbsentDays')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Absence %
+                    {t('hr.attendanceReport.absencePercent')}
                   </th>
                 </tr>
               </thead>
@@ -431,7 +433,7 @@ const AttendanceReport = () => {
       {reportData.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            <strong>Total Records:</strong> {reportData.length} | Showing attendance data for selected date range
+            <strong>{t('hr.attendanceReport.totalRecords')}:</strong> {reportData.length} | {t('hr.attendanceReport.selectedDateRangeSummary')}
           </p>
         </div>
       )}

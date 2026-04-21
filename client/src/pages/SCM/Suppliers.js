@@ -160,7 +160,7 @@ const SCMSuppliers = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search suppliers by name..."
+            placeholder={t('scm.suppliers.searchPlaceholder')}
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
           />
         </div>
@@ -235,7 +235,7 @@ const SCMSuppliers = () => {
           <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-96 shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                {editingSupplier ? 'Edit Supplier' : 'Add Supplier'}
+                {editingSupplier ? t('scm.suppliers.editSupplier') : t('scm.suppliers.addSupplier')}
               </h3>
               <button
                 onClick={() => {
@@ -253,7 +253,7 @@ const SCMSuppliers = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Supplier Name
+                  {t('scm.suppliers.supplierName')}
                 </label>
                 <input
                   type="text"
@@ -265,7 +265,7 @@ const SCMSuppliers = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Contact Person
+                  {t('scm.suppliers.contactPerson')}
                 </label>
                 <input
                   type="text"
@@ -277,7 +277,7 @@ const SCMSuppliers = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email
+                  {t('common.email')}
                 </label>
                 <input
                   type="email"
@@ -289,7 +289,7 @@ const SCMSuppliers = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Phone
+                  {t('common.phone')}
                 </label>
                 <input
                   type="tel"
@@ -304,33 +304,33 @@ const SCMSuppliers = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Rating
+                  {t('scm.reports.rating')}
                 </label>
                 <select
                   value={formData.rating}
                   onChange={(e) => setFormData({ ...formData, rating: parseInt(e.target.value) })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
-                  <option value={1}>1 Star</option>
-                  <option value={2}>2 Stars</option>
-                  <option value={3}>3 Stars</option>
-                  <option value={4}>4 Stars</option>
-                  <option value={5}>5 Stars</option>
+                  <option value={1}>{t('scm.suppliers.stars', { count: 1 })}</option>
+                  <option value={2}>{t('scm.suppliers.stars', { count: 2 })}</option>
+                  <option value={3}>{t('scm.suppliers.stars', { count: 3 })}</option>
+                  <option value={4}>{t('scm.suppliers.stars', { count: 4 })}</option>
+                  <option value={5}>{t('scm.suppliers.stars', { count: 5 })}</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Payment Terms
+                  {t('scm.suppliers.paymentTerms')}
                 </label>
                 <select
                   value={formData.paymentTerms}
                   onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
-                  <option value="Net 15">Net 15</option>
-                  <option value="Net 30">Net 30</option>
-                  <option value="Net 45">Net 45</option>
-                  <option value="Net 60">Net 60</option>
+                  <option value="Net 15">{t('scm.suppliers.net15')}</option>
+                  <option value="Net 30">{t('scm.suppliers.net30')}</option>
+                  <option value="Net 45">{t('scm.suppliers.net45')}</option>
+                  <option value="Net 60">{t('scm.suppliers.net60')}</option>
                 </select>
               </div>
               <div className="flex justify-end space-x-3 pt-4">
@@ -345,13 +345,13 @@ const SCMSuppliers = () => {
                   }}
                   className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
                 >
-                  {editingSupplier ? 'Update' : 'Create'}
+                  {editingSupplier ? t('common.update') : t('common.create')}
                 </button>
               </div>
             </form>

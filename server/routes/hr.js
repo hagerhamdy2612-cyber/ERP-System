@@ -40,7 +40,6 @@ router.get('/employees', async (req, res) => {
         position: employee.position,
         department: employee.department,
         hireDate: employee.hireDate,
-        salary: employee.salary || 0,
         holidays: employee.holidays || 0,
         personalInfo: employee.personalInfo || {
           phone: ''
@@ -77,7 +76,6 @@ router.get('/employees', async (req, res) => {
                   user.role === 'manager' ? 'Manager' : 'Employee',
         department: user.department,
         hireDate: user.createdAt,
-        salary: 0,
         holidays: 0,
         personalInfo: {
           phone: ''
@@ -207,7 +205,6 @@ router.post('/employees', [
   body('email').isEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('department').notEmpty().withMessage('Department is required'),
-  body('salary').optional().isNumeric().withMessage('Salary must be a number'),
   body('holidays').optional().isInt({ min: 0 }).withMessage('Holidays must be a non-negative integer'),
   body('phone').custom((value) => isOptionalPhoneValid(value == null ? '' : String(value))).withMessage(PHONE_VALIDATION_MESSAGE)
 ], async (req, res) => {
@@ -221,7 +218,7 @@ router.post('/employees', [
       });
     }
 
-    const { name, email, password, role, department, salary, holidays, phone } = req.body;
+    const { name, email, password, role, department, holidays, phone } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -272,7 +269,7 @@ router.post('/employees', [
                   user.role === 'manager' ? 'Manager' : 'Employee',
         department: user.department || 'HR',
         hireDate: user.createdAt,
-        salary: salary ? parseFloat(salary) : 0,
+        salary: 0,
         holidays: holidays ? parseInt(holidays) : 0,
         personalInfo: {
           phone: phone || ''
@@ -310,7 +307,6 @@ router.post('/employees', [
       position: employee.position,
       department: employee.department,
       hireDate: employee.hireDate,
-      salary: employee.salary,
       holidays: employee.holidays || 0,
       personalInfo: employee.personalInfo,
       isActive: employee.isActive,
@@ -359,7 +355,7 @@ router.put('/employees/:id', [
       });
     }
 
-    const { name, email, role, department, salary, holidays, phone, password } = req.body;
+    const { name, email, role, department, holidays, phone, password } = req.body;
 
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -402,9 +398,6 @@ router.put('/employees/:id', [
     
     if (employee) {
       // Update existing employee record
-      if (salary !== undefined) {
-        employee.salary = parseFloat(salary);
-      }
       if (holidays !== undefined) {
         employee.holidays = parseInt(holidays);
       }
@@ -437,7 +430,7 @@ router.put('/employees/:id', [
                   user.role === 'manager' ? 'Manager' : 'Employee',
         department: user.department || 'HR',
         hireDate: user.createdAt || new Date(),
-        salary: salary ? parseFloat(salary) : 0,
+        salary: 0,
         holidays: holidays ? parseInt(holidays) : 0,
         personalInfo: {
           phone: phone || ''
@@ -461,7 +454,6 @@ router.put('/employees/:id', [
       position: employee.position,
       department: employee.department,
       hireDate: employee.hireDate,
-      salary: employee.salary,
       holidays: employee.holidays || 0,
       personalInfo: employee.personalInfo || {
         phone: ''

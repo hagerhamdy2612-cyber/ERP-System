@@ -31,7 +31,7 @@ const FinanceTransactions = () => {
       setBankAccounts(bankRes.data.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load data');
+      toast.error(t('finance.transactions.errors.loadData'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ const FinanceTransactions = () => {
 
   const handlePayInvoice = async () => {
     if (!selectedBankAccount) {
-      toast.error('Please select a bank account');
+      toast.error(t('finance.transactions.errors.selectBankAccount'));
       return;
     }
 
@@ -59,12 +59,12 @@ const FinanceTransactions = () => {
         notes: paymentNotes
       });
 
-      toast.success('Invoice paid successfully');
+      toast.success(t('finance.transactions.messages.paidSuccess'));
       setShowPaymentModal(false);
       setSelectedInvoice(null);
       fetchData(); // Refresh list
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to pay invoice');
+      toast.error(error.response?.data?.message || t('finance.transactions.errors.payFailed'));
     } finally {
       setProcessing(false);
     }
@@ -73,7 +73,7 @@ const FinanceTransactions = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading invoices...</div>
+        <div className="text-gray-500 dark:text-gray-400">{t('finance.transactions.loadingInvoices')}</div>
       </div>
     );
   }
@@ -81,7 +81,7 @@ const FinanceTransactions = () => {
   return (
     <div className="space-y-6 transition-colors duration-300">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoices</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('finance.transactions.title')}</h1>
       </div>
 
       {/* Invoices Table */}
@@ -91,7 +91,7 @@ const FinanceTransactions = () => {
             <thead className="bg-gray-100 dark:bg-slate-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Invoice #
+                  {t('finance.transactions.invoiceNumber')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {t('common.type')}
@@ -133,7 +133,7 @@ const FinanceTransactions = () => {
                               : 'bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-400'
                           }`}
                         >
-                          {invoice.type === 'sales' ? 'Sales' : 'Purchase'}
+                          {invoice.type === 'sales' ? t('finance.transactions.sales') : t('finance.transactions.purchase')}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -145,7 +145,7 @@ const FinanceTransactions = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {invoice.dueDate
                           ? new Date(invoice.dueDate).toLocaleDateString()
-                          : 'N/A'}
+                          : t('common.unknown')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {invoice.totalAmount.toLocaleString('en-US', {
@@ -162,7 +162,7 @@ const FinanceTransactions = () => {
                               : 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-400'
                           }`}
                         >
-                          {invoice.status}
+                          {invoice.status === 'paid' ? t('finance.transactions.paid') : t('finance.transactions.unpaid')}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -172,10 +172,10 @@ const FinanceTransactions = () => {
                             className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
                           >
                             <DollarSign className="h-3 w-3 mr-1" />
-                            Pay
+                            {t('finance.transactions.pay')}
                           </button>
                         ) : (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">Paid</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t('finance.transactions.paid')}</span>
                         )}
                       </td>
                     </tr>
@@ -184,7 +184,7 @@ const FinanceTransactions = () => {
               ) : (
                 <tr>
                   <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                    No invoices found
+                    {t('finance.transactions.noInvoices')}
                   </td>
                 </tr>
               )}
@@ -198,7 +198,7 @@ const FinanceTransactions = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black dark:bg-opacity-70 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-96 shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
             <div className="mb-4 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Pay Invoice</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('finance.transactions.payInvoice')}</h3>
               <button
                 onClick={() => {
                   setShowPaymentModal(false);
@@ -212,7 +212,7 @@ const FinanceTransactions = () => {
 
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Invoice Number:</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('finance.transactions.invoiceNumber')}:</p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
                   {selectedInvoice.invoiceNumber}
                 </p>
@@ -246,10 +246,10 @@ const FinanceTransactions = () => {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                   required
                 >
-                  <option value="">Select Account</option>
+                  <option value="">{t('common.selectAccount')}</option>
                   {bankAccounts.map((account) => (
                     <option key={account._id} value={account._id}>
-                      {account.name} - Balance:{' '}
+                      {account.name} - {t('common.balance')}:{' '}
                       {account.balance.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
@@ -269,7 +269,7 @@ const FinanceTransactions = () => {
                   onChange={(e) => setPaymentNotes(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                  placeholder="Payment notes..."
+                  placeholder={t('finance.transactions.paymentNotesPlaceholder')}
                 />
               </div>
 
@@ -280,11 +280,11 @@ const FinanceTransactions = () => {
                   className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                 >
                   {processing ? (
-                    'Processing...'
+                    t('finance.transactions.processing')
                   ) : (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Confirm Payment
+                      {t('finance.transactions.confirmPayment')}
                     </>
                   )}
                 </button>
@@ -295,7 +295,7 @@ const FinanceTransactions = () => {
                   }}
                   className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>

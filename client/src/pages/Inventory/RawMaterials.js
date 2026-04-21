@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { Plus, Package, AlertTriangle, Edit, Trash2, Truck } from 'lucide-react';
 
 const RawMaterials = () => {
+  const { t } = useTranslation();
   const [materials, setMaterials] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ const RawMaterials = () => {
       console.log('✅ Raw Materials fetched:', response.data.data?.length || 0);
     } catch (error) {
       console.error('❌ Failed to fetch raw materials:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch raw materials');
+      toast.error(error.response?.data?.message || t('inventory.rawMaterials.errors.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -44,7 +46,7 @@ const RawMaterials = () => {
       const response = await axios.get('/api/scm/suppliers');
       setSuppliers(response.data.data);
     } catch (error) {
-      console.error('Failed to fetch suppliers');
+      console.error(t('inventory.rawMaterials.errors.fetchSuppliers'));
     }
   };
 
@@ -53,13 +55,13 @@ const RawMaterials = () => {
     try {
       if (editingMaterial) {
         await axios.put(`/api/inventory/products/${editingMaterial._id}`, formData);
-        toast.success('Raw material updated successfully');
+        toast.success(t('inventory.rawMaterials.messages.updated'));
       } else {
         await axios.post('/api/inventory/products', {
           ...formData,
           category: 'raw-material'
         });
-        toast.success('Raw material created successfully');
+        toast.success(t('inventory.rawMaterials.messages.created'));
       }
       setShowModal(false);
       setEditingMaterial(null);
@@ -76,7 +78,7 @@ const RawMaterials = () => {
       });
       fetchMaterials();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save raw material');
+      toast.error(error.response?.data?.message || t('inventory.rawMaterials.errors.saveFailed'));
     }
   };
 
@@ -97,14 +99,14 @@ const RawMaterials = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this raw material?')) {
+    if (window.confirm(t('inventory.rawMaterials.deleteConfirm'))) {
       try {
         await axios.delete(`/api/inventory/products/${id}`);
-        toast.success('Raw material deleted successfully');
+        toast.success(t('inventory.rawMaterials.messages.deleted'));
         fetchMaterials();
       } catch (error) {
         console.error('Delete error:', error);
-        toast.error(error.response?.data?.message || 'Failed to delete raw material');
+        toast.error(error.response?.data?.message || t('inventory.rawMaterials.errors.deleteFailed'));
       }
     }
   };
@@ -114,9 +116,9 @@ const RawMaterials = () => {
   };
 
   const getStockStatus = (material) => {
-    if (material.currentStock === 0) return { color: 'text-red-600', bg: 'bg-red-100', text: 'Out of Stock' };
-    if (isLowStock(material)) return { color: 'text-yellow-600', bg: 'bg-yellow-100', text: 'Low Stock' };
-    return { color: 'text-green-600', bg: 'bg-green-100', text: 'In Stock' };
+    if (material.currentStock === 0) return { color: 'text-red-600', bg: 'bg-red-100', text: t('inventory.status.outOfStock') };
+    if (isLowStock(material)) return { color: 'text-yellow-600', bg: 'bg-yellow-100', text: t('inventory.status.lowStock') };
+    return { color: 'text-green-600', bg: 'bg-green-100', text: t('inventory.status.inStock') };
   };
 
   if (loading) {
@@ -132,9 +134,9 @@ const RawMaterials = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Raw Materials</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('inventory.rawMaterials.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage raw materials and components inventory
+            {t('inventory.rawMaterials.description')}
           </p>
         </div>
         <button
@@ -142,7 +144,7 @@ const RawMaterials = () => {
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Raw Material
+          {t('inventory.rawMaterials.add')}
         </button>
       </div>
 
@@ -153,10 +155,10 @@ const RawMaterials = () => {
             <AlertTriangle className="h-5 w-5 text-yellow-400" />
             <div className="ml-3">
               <h3 className="text-sm font-medium text-yellow-800">
-                Low Stock Alert
+                {t('inventory.rawMaterials.lowStockAlert')}
               </h3>
               <div className="mt-2 text-sm text-yellow-700">
-                <p>{materials.filter(isLowStock).length} raw material(s) are running low on stock.</p>
+                <p>{t('inventory.rawMaterials.lowStockMessage', { count: materials.filter(isLowStock).length })}</p>
               </div>
             </div>
           </div>
@@ -187,21 +189,21 @@ const RawMaterials = () => {
                 
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Current Stock</span>
+                    <span className="text-gray-500">{t('inventory.rawMaterials.currentStock')}</span>
                     <span className={`font-medium ${stockStatus.color}`}>
                       {material.currentStock} {material.unit}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Min Level</span>
+                    <span className="text-gray-500">{t('inventory.rawMaterials.minLevel')}</span>
                     <span className="text-gray-900">{material.minStockLevel} {material.unit}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Unit Cost</span>
+                    <span className="text-gray-500">{t('inventory.rawMaterials.unitCost')}</span>
                     <span className="text-gray-900">${material.unitCost}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Total Value</span>
+                    <span className="text-gray-500">{t('inventory.rawMaterials.totalValue')}</span>
                     <span className="text-gray-900">${(material.currentStock * material.unitCost).toLocaleString()}</span>
                   </div>
                   {material.supplier && (
@@ -243,12 +245,12 @@ const RawMaterials = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {editingMaterial ? 'Edit Raw Material' : 'Add Raw Material'}
+                {editingMaterial ? t('inventory.rawMaterials.edit') : t('inventory.rawMaterials.add')}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Material Name
+                    {t('inventory.rawMaterials.materialName')}
                   </label>
                   <input
                     type="text"
@@ -260,7 +262,7 @@ const RawMaterials = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    SKU
+                    {t('inventory.rawMaterials.sku')}
                   </label>
                   <input
                     type="text"
@@ -272,7 +274,7 @@ const RawMaterials = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Unit
+                    {t('inventory.rawMaterials.unit')}
                   </label>
                   <input
                     type="text"
@@ -285,7 +287,7 @@ const RawMaterials = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Current Stock
+                      {t('inventory.rawMaterials.currentStock')}
                     </label>
                     <input
                       type="number"
@@ -297,7 +299,7 @@ const RawMaterials = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Unit Cost
+                      {t('inventory.rawMaterials.unitCost')}
                     </label>
                     <input
                       type="number"
@@ -312,7 +314,7 @@ const RawMaterials = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Min Stock Level
+                      {t('inventory.rawMaterials.minStockLevel')}
                     </label>
                     <input
                       type="number"
@@ -324,7 +326,7 @@ const RawMaterials = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Max Stock Level
+                      {t('inventory.rawMaterials.maxStockLevel')}
                     </label>
                     <input
                       type="number"
@@ -337,14 +339,14 @@ const RawMaterials = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Supplier
+                    {t('inventory.rawMaterials.supplier')}
                   </label>
                   <select
                     value={formData.supplier}
                     onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                   >
-                    <option value="">Select Supplier</option>
+                    <option value="">{t('inventory.rawMaterials.selectSupplier')}</option>
                     {suppliers.map(supplier => (
                       <option key={supplier._id} value={supplier._id}>
                         {supplier.name}
@@ -354,7 +356,7 @@ const RawMaterials = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Description
+                    {t('inventory.rawMaterials.descriptionLabel')}
                   </label>
                   <textarea
                     value={formData.description}
@@ -372,13 +374,13 @@ const RawMaterials = () => {
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
                   >
-                    {editingMaterial ? 'Update' : 'Create'}
+                    {editingMaterial ? t('common.update') : t('common.create')}
                   </button>
                 </div>
               </form>

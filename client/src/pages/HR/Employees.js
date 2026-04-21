@@ -58,7 +58,6 @@ const Employees = () => {
           email: formData.email,
           role: formData.role,
           department: formData.department,
-          salary: formData.salary || 0,
           holidays: formData.holidays || 0,
           phone: formData.phone || ''
         };
@@ -78,12 +77,10 @@ const Employees = () => {
         console.log('Form validation - password:', formData.password);
         console.log('Form validation - role:', formData.role);
         console.log('Form validation - department:', formData.department);
-        console.log('Form validation - salary:', formData.salary);
         console.log('Form validation - holidays:', formData.holidays);
         
         const response = await axios.post('/api/hr/employees', {
           ...formData,
-          salary: formData.salary || 0,
           holidays: formData.holidays || 0,
           phone: formData.phone || ''
         });
@@ -98,7 +95,6 @@ const Employees = () => {
         password: '',
         role: 'employee',
         department: '',
-        salary: '',
         holidays: '',
         phone: ''
       });
@@ -150,7 +146,6 @@ const Employees = () => {
       password: '', // Don't show password for editing
       role: employee.user.role || 'employee',
       department: employee.department || '',
-      salary: employee.salary || '',
       holidays: employee.holidays || '',
       phone: employee.personalInfo?.phone || ''
     });
@@ -278,8 +273,6 @@ const Employees = () => {
                       <span>{employee.position}</span>
                       <span className="mx-2">•</span>
                       <span>{employee.department}</span>
-                      <span className="mx-2">•</span>
-                      <span>${(employee.salary || 0).toLocaleString()}</span>
                       {employee.holidays !== undefined && employee.holidays > 0 && (
                         <>
                           <span className="mx-2">•</span>
@@ -444,14 +437,14 @@ const Employees = () => {
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
                   <option value="">{t('hr.employees.selectDepartment')}</option>
-                  <option value="HR">HR</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="SCM">SCM</option>
-                  <option value="CRM">CRM</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Inventory">Inventory</option>
-                  <option value="Purchasing">Purchasing</option>
-                  <option value="Finance">Finance</option>
+                  <option value="HR">{t('navigation.hr')}</option>
+                  <option value="Manufacturing">{t('navigation.manufacturing')}</option>
+                  <option value="SCM">{t('navigation.scm')}</option>
+                  <option value="CRM">{t('navigation.crm')}</option>
+                  <option value="Sales">{t('navigation.sales')}</option>
+                  <option value="Inventory">{t('navigation.inventory')}</option>
+                  <option value="Purchasing">{t('navigation.purchasing')}</option>
+                  <option value="Finance">{t('navigation.finance')}</option>
                 </select>
               </div>
               <div>
@@ -467,20 +460,6 @@ const Employees = () => {
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('common.optional')}: {t('validation.phoneHint')}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('hr.employees.salary')}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.salary}
-                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  placeholder="0.00"
-                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

@@ -226,7 +226,7 @@ const CRMCustomers = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('crm.customers.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {t('crm.customers.description')}
           </p>
@@ -411,8 +411,8 @@ const CRMCustomers = () => {
                   onChange={(e) => setFormData({ ...formData, customerType: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
-                  <option value="individual">Individual</option>
-                  <option value="business">Business</option>
+                  <option value="individual">{t('crm.customers.typeIndividual')}</option>
+                  <option value="business">{t('crm.customers.typeBusiness')}</option>
                 </select>
               </div>
               {formData.customerType === 'business' && (
@@ -449,10 +449,10 @@ const CRMCustomers = () => {
                     onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
                     className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   >
-                    <option value="Net 15">Net 15</option>
-                    <option value="Net 30">Net 30</option>
-                    <option value="Net 45">Net 45</option>
-                    <option value="Net 60">Net 60</option>
+                    <option value="Net 15">{t('crm.customers.net15')}</option>
+                    <option value="Net 30">{t('crm.customers.net30')}</option>
+                    <option value="Net 45">{t('crm.customers.net45')}</option>
+                    <option value="Net 60">{t('crm.customers.net60')}</option>
                   </select>
                 </div>
               </div>
@@ -522,24 +522,24 @@ const CRMCustomers = () => {
             ) : salesHistory.length === 0 ? (
               <div className="text-center py-12">
                 <History className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No sales history found for this customer</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('crm.customers.noSalesHistory')}</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* Summary Stats */}
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <Card paddingSize="sm">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Orders</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('crm.customers.totalOrders')}</div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">{salesHistory.length}</div>
                   </Card>
                   <Card paddingSize="sm">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Spent</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('crm.customers.totalSpent')}</div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
                       ${salesHistory.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString()}
                     </div>
                   </Card>
                   <Card paddingSize="sm">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Average Order</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('crm.customers.averageOrder')}</div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
                       ${salesHistory.length > 0 
                         ? (salesHistory.reduce((sum, order) => sum + (order.total || 0), 0) / salesHistory.length).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -588,13 +588,13 @@ const CRMCustomers = () => {
                                 <div>
                                   {order.items.map((item, idx) => (
                                     <div key={idx} className="mb-1">
-                                      {item.product?.name || 'Unknown Product'} 
+                                      {item.product?.name || t('common.unknownProduct')} 
                                       <span className="text-gray-400 dark:text-gray-500"> x {item.quantity}</span>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <span className="text-gray-400 dark:text-gray-500">No items</span>
+                                <span className="text-gray-400 dark:text-gray-500">{t('crm.customers.noItems')}</span>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

@@ -33,7 +33,7 @@ const FinanceBankAccounts = () => {
       setBankAccounts(response.data.data);
     } catch (error) {
       console.error('Error fetching bank accounts:', error);
-      toast.error('Failed to load bank accounts');
+      toast.error(t('finance.bankAccounts.errors.loadData'));
     } finally {
       setLoading(false);
     }
@@ -101,10 +101,10 @@ const FinanceBankAccounts = () => {
     setDeletingId(accountId);
     try {
       await axios.delete(`/api/finance/bank-accounts/${accountId}`);
-      toast.success('Bank account deleted successfully');
+      toast.success(t('finance.bankAccounts.messages.deletedSuccess'));
       fetchBankAccounts();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete bank account');
+      toast.error(error.response?.data?.message || t('finance.bankAccounts.errors.deleteFailed'));
     } finally {
       setDeletingId(null);
     }
@@ -131,7 +131,7 @@ const FinanceBankAccounts = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading bank accounts...</div>
+        <div className="text-gray-500 dark:text-gray-400">{t('finance.bankAccounts.loading')}</div>
       </div>
     );
   }
@@ -139,72 +139,72 @@ const FinanceBankAccounts = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Manage Bank Accounts</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('finance.bankAccounts.title')}</h1>
         <button
           onClick={() => handleOpenModal()}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Bank Account
+          {t('finance.bankAccounts.addAccount')}
         </button>
       </div>
 
       {/* Bank Accounts Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden border border-gray-200 dark:border-slate-700">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-slate-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('common.name')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Balance
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('common.balance')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   {t('common.created')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   {t('common.updated')}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('common.actions')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
               {bankAccounts.length > 0 ? (
                 bankAccounts.map((account) => (
-                  <tr key={account._id} className="hover:bg-gray-50">
+                  <tr key={account._id} className="hover:bg-gray-50 dark:hover:bg-slate-700/40">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="bg-blue-100 rounded-full p-2 mr-3">
+                        <div className="bg-blue-100 dark:bg-blue-500/20 rounded-full p-2 mr-3">
                           <Wallet className="h-4 w-4 text-blue-600" />
                         </div>
-                        <div className="text-sm font-medium text-gray-900">{account.name}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{account.name}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {account.balance.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}{' '}
                       EGP
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(account.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(account.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button
                           onClick={() => handleOpenModal(account)}
-                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-slate-600 text-xs font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600"
                         >
                           <Edit className="h-3 w-3 mr-1" />
-                          Edit
+                          {t('common.edit')}
                         </button>
                         <button
                           onClick={() => handleDelete(account._id)}
@@ -221,7 +221,7 @@ const FinanceBankAccounts = () => {
               ) : (
                 <tr>
                   <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
-                    No bank accounts found. Click "Add Bank Account" to create one.
+                    {t('finance.bankAccounts.noAccounts')}
                   </td>
                 </tr>
               )}
@@ -233,14 +233,14 @@ const FinanceBankAccounts = () => {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-96 shadow-lg rounded-md bg-white dark:bg-slate-800">
             <div className="mb-4 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">
-                {editingAccount ? 'Edit Bank Account' : 'Add Bank Account'}
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                {editingAccount ? t('finance.bankAccounts.editAccount') : t('finance.bankAccounts.addAccount')}
               </h3>
               <button
                 onClick={handleCloseModal}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -248,22 +248,22 @@ const FinanceBankAccounts = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Name *
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('finance.bankAccounts.accountName')}
                 </label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Cash, Bank Account, etc."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={t('finance.bankAccounts.accountNamePlaceholder')}
                   required
                 />
               </div>
 
               <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('finance.bankAccounts.initialBalance')}
                   </label>
                 <input
@@ -273,14 +273,14 @@ const FinanceBankAccounts = () => {
                   onChange={handleChange}
                   step="0.01"
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   {editingAccount
-                    ? 'Note: Changing balance here will update the account balance directly.'
-                    : 'Set the initial balance for this account.'}
+                      ? t('finance.bankAccounts.balanceNote')
+                    : t('finance.bankAccounts.initialBalanceNote')}
                 </p>
               </div>
 
@@ -292,16 +292,16 @@ const FinanceBankAccounts = () => {
                 >
                   {submitting
                     ? editingAccount
-                      ? 'Updating...'
-                      : 'Creating...'
+                      ? t('finance.bankAccounts.updating')
+                      : t('finance.bankAccounts.creating')
                     : editingAccount
-                    ? 'Update Account'
-                    : 'Create Account'}
+                    ? t('finance.bankAccounts.updateAccount')
+                    : t('finance.bankAccounts.createAccount')}
                 </button>
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600"
                 >
                     {t('common.cancel')}
                 </button>

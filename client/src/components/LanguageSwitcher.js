@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Globe } from 'lucide-react';
 
 const LanguageSwitcher = () => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
@@ -23,8 +23,8 @@ const LanguageSwitcher = () => {
           onChange={(e) => changeLanguage(e.target.value)}
           className="bg-transparent border-none text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer focus:outline-none focus:ring-0"
         >
-          <option value="en">English</option>
-          <option value="ar">العربية</option>
+          <option value="en">{t('common.languageEnglish')}</option>
+          <option value="ar">{t('common.languageArabic')}</option>
         </select>
       </div>
     </div>

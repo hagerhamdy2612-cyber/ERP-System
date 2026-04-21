@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/Card';
 import {
@@ -22,6 +23,7 @@ import {
 } from 'recharts';
 
 const ManufacturingDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [kpis, setKpis] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -96,9 +98,9 @@ const ManufacturingDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manufacturing Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('manufacturing.dashboard.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Overview of production orders and manufacturing operations
+          {t('manufacturing.dashboard.description')}
         </p>
       </div>
 
@@ -115,7 +117,7 @@ const ManufacturingDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Orders
+                    {t('manufacturing.dashboard.totalOrders')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalOrders || 0}
@@ -137,7 +139,7 @@ const ManufacturingDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Pending
+                    {t('manufacturing.dashboard.pending')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.pendingOrders || 0}
@@ -159,7 +161,7 @@ const ManufacturingDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    In Progress
+                    {t('manufacturing.dashboard.inProgress')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.inProgressOrders || 0}
@@ -181,7 +183,7 @@ const ManufacturingDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Completed
+                    {t('manufacturing.dashboard.completed')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.completedOrders || 0}
@@ -197,12 +199,14 @@ const ManufacturingDashboard = () => {
       <Card padding={false} className="overflow-hidden">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
             <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-              Completion Rate
+              {t('manufacturing.dashboard.completionRate')}
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {kpis?.totalOrders > 0 
-                ? Math.round((kpis.completedOrders / kpis.totalOrders) * 100) 
-                : 0}% of orders completed
+              {t('manufacturing.dashboard.ordersCompleted', {
+                percent: kpis?.totalOrders > 0
+                  ? Math.round((kpis.completedOrders / kpis.totalOrders) * 100)
+                  : 0
+              })}
             </p>
           </div>
           <div className="px-4 py-5 sm:p-6">
@@ -213,12 +217,12 @@ const ManufacturingDashboard = () => {
                     <Pie
                       data={[
                         { 
-                          name: 'Completed', 
+                          name: t('manufacturing.dashboard.completedSlice'), 
                           value: kpis.completedOrders,
                           count: kpis.completedOrders
                         },
                         { 
-                          name: 'Not Completed', 
+                          name: t('manufacturing.dashboard.notCompletedSlice'), 
                           value: kpis.pendingOrders + kpis.inProgressOrders + kpis.cancelledOrders,
                           count: kpis.pendingOrders + kpis.inProgressOrders + kpis.cancelledOrders
                         }
@@ -236,7 +240,10 @@ const ManufacturingDashboard = () => {
                     </Pie>
                     <Tooltip 
                       formatter={(value, name, props) => [
-                        `${value} orders (${((value / kpis.totalOrders) * 100).toFixed(1)}%)`,
+                        t('manufacturing.dashboard.pieTooltipOrders', {
+                          count: value,
+                          percent: ((value / kpis.totalOrders) * 100).toFixed(1)
+                        }),
                         props.payload.name
                       ]}
                       contentStyle={{
@@ -260,7 +267,7 @@ const ManufacturingDashboard = () => {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
-                  No production data available
+                  {t('manufacturing.dashboard.noProductionData')}
                 </div>
               )}
             </div>
@@ -271,14 +278,14 @@ const ManufacturingDashboard = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-            Recent Production Orders
+            {t('manufacturing.dashboard.recentOrders')}
           </h3>
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-slate-700">
           {recentOrders.length === 0 ? (
             <li className="px-4 py-5 sm:px-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                No production orders yet
+                {t('manufacturing.dashboard.noOrders')}
               </p>
             </li>
           ) : (
@@ -296,9 +303,9 @@ const ManufacturingDashboard = () => {
                         </p>
                       </div>
                       <div className="mt-1 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        <span>{order.product?.name || 'Unknown Product'}</span>
+                        <span>{order.product?.name || t('common.unknownProduct')}</span>
                         <span className="mx-2">•</span>
-                        <span>Quantity: {order.quantity}</span>
+                        <span>{t('manufacturing.dashboard.quantityLabel')}: {order.quantity}</span>
                         {order.orderDate && (
                           <>
                             <span className="mx-2">•</span>
@@ -310,7 +317,7 @@ const ManufacturingDashboard = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {t(`manufacturing.reports.status.${order.status}`, { defaultValue: order.status })}
                     </span>
                   </div>
                 </div>

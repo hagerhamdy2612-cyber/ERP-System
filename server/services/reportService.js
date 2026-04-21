@@ -10,6 +10,10 @@ const ProductionOrder = require('../models/ProductionOrder');
 const Complaint = require('../models/Complaint');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
+const {
+  isLowStockForReorder,
+  lowStockRawMaterialMongoFilter
+} = require('../utils/autoPurchaseLowStock');
 
 class ReportService {
   constructor() {
@@ -305,11 +309,10 @@ class ReportService {
       };
 
       // Get low stock alerts
-      const lowStockProducts = await Product.find({
-        $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-        isActive: true
-      })
-      .populate('supplier', 'name contactPerson email');
+      const lowStockProducts = await Product.find(lowStockRawMaterialMongoFilter()).populate(
+        'supplier',
+        'name contactPerson email'
+      );
 
       const lowStock = lowStockProducts.map(product => ({
         product: {
@@ -430,9 +433,7 @@ class ReportService {
       };
 
       // Low stock products
-      const lowStockProducts = products.filter(p => 
-        p.currentStock <= p.minStockLevel
-      ).map(p => ({
+      const lowStockProducts = products.filter((p) => isLowStockForReorder(p)).map((p) => ({
         name: p.name,
         sku: p.sku,
         currentStock: p.currentStock,
@@ -491,7 +492,7 @@ class ReportService {
         sellingPrice: p.sellingPrice != null ? p.sellingPrice : '',
         supplierName: p.supplier?.name || 'N/A',
         stockValue: (p.currentStock || 0) * (p.unitCost || 0),
-        isLowStock: p.currentStock <= p.minStockLevel
+        isLowStock: isLowStockForReorder(p)
       }));
 
       return {

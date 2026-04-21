@@ -8,6 +8,7 @@ const Customer = require('../models/Customer');
 const Attendance = require('../models/Attendance');
 const ProductionOrder = require('../models/ProductionOrder');
 const { protect } = require('../middleware/auth');
+const { lowStockProductMongoFilter } = require('../utils/autoPurchaseLowStock');
 
 const router = express.Router();
 
@@ -51,10 +52,7 @@ router.get('/kpis', protect, async (req, res) => {
 
     // Inventory metrics
     const totalProducts = await Product.countDocuments({ isActive: true });
-    const lowStockProducts = await Product.countDocuments({
-      $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-      isActive: true
-    });
+    const lowStockProducts = await Product.countDocuments(lowStockProductMongoFilter());
     const stockValue = await Product.aggregate([
       { $match: { isActive: true } },
       { $group: { _id: null, total: { $sum: { $multiply: ['$currentStock', '$unitCost'] } } } }

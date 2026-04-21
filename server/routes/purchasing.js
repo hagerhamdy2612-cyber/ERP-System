@@ -9,8 +9,148 @@ const Employee = require('../models/Employee');
 const { protect, authorize, authorizeCreatePurchaseOrder, authorizeEditPurchaseOrder, authorizeAcceptPurchaseOrder, authorizeReceivePurchaseOrder, authorizeDepartment } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 const { archiveDocument } = require('../services/archiveService');
+const { lowStockRawMaterialMongoFilter } = require('../utils/autoPurchaseLowStock');
 
 const router = express.Router();
+
+/**
+ * Build PO line items using each product's unit cost from inventory (no client unit price).
+ */
+async function buildPurchaseOrderItemsFromProducts(items) {
+  const processedItems = [];
+  let subtotal = 0;
+  for (const item of items) {
+    const product = await Product.findById(item.product);
+    if (!product) {
+      const err = new Error('Product not found');
+      err.statusCode = 400;
+      throw err;
+    }
+    const qty = Number(item.quantity);
+    if (Number.isNaN(qty) || qty <= 0) {
+      const err = new Error('Each line needs a valid quantity greater than 0');
+      err.statusCode = 400;
+      throw err;
+    }
+    const unitPrice = Number(product.unitCost);
+    if (Number.isNaN(unitPrice) || unitPrice < 0) {
+      const err = new Error(`Product "${product.name}" has an invalid unit cost in inventory`);
+      err.statusCode = 400;
+      throw err;
+    }
+    if (unitPrice === 0) {
+      const err = new Error(
+        `Product "${product.name}" has no unit cost set. Set unit cost in Inventory (Raw materials) before purchasing.`
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+    const lineTotal = Math.round(qty * unitPrice * 100) / 100;
+    subtotal = Math.round((subtotal + lineTotal) * 100) / 100;
+    processedItems.push({
+      product: item.product,
+      quantity: qty,
+      unitPrice,
+      total: lineTotal
+    });
+  }
+  return { processedItems, subtotal };
+}
+
+/**
+ * Next PO#### using numeric max (safe with deleted/history gaps).
+ */
+async function getNextPurchaseOrderNumber() {
+  const orders = await PurchaseOrder.find({ orderNumber: { $regex: /^PO\d+$/i } })
+    .select('orderNumber')
+    .setOptions({ includeDeleted: true })
+    .lean();
+  let max = 0;
+  for (const o of orders) {
+    const n = parseInt(String(o.orderNumber).replace(/^PO/i, ''), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return `PO${String(max + 1).padStart(4, '0')}`;
+}
+
+/**
+ * Create purchase order and retry on duplicate PO number collisions.
+ */
+async function createPurchaseOrderWithUniqueNumber(payload, maxAttempts = 5) {
+  let lastError;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    try {
+      const orderNumber = await getNextPurchaseOrderNumber();
+      return await PurchaseOrder.create({ ...payload, orderNumber });
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== 11000) throw error;
+    }
+  }
+  throw lastError || new Error('Failed to generate unique purchase order number');
+}
+
+async function getNextPurchaseInvoiceNumber() {
+  const invoices = await PurchaseInvoice.find({ invoiceNumber: { $regex: /^PINV\d+$/i } })
+    .select('invoiceNumber')
+    .lean();
+  let max = 0;
+  for (const inv of invoices) {
+    const n = parseInt(String(inv.invoiceNumber).replace(/^PINV/i, ''), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return `PINV${String(max + 1).padStart(4, '0')}`;
+}
+
+async function createPurchaseInvoiceWithUniqueNumber(payload, maxAttempts = 5) {
+  let lastError;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    try {
+      const invoiceNumber = await getNextPurchaseInvoiceNumber();
+      return await PurchaseInvoice.create({ ...payload, invoiceNumber });
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== 11000) throw error;
+    }
+  }
+  throw lastError || new Error('Failed to generate unique purchase invoice number');
+}
+
+async function ensureInvoiceForPurchaseOrder({ purchaseOrder, supplierId, items, notes }) {
+  const existingInvoice = await PurchaseInvoice.findOne({ purchaseOrder: purchaseOrder._id });
+  if (existingInvoice) return existingInvoice;
+
+  const supplierData = await Supplier.findById(supplierId || purchaseOrder.supplier);
+  const paymentTerms = supplierData?.paymentTerms || 'Net 30';
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 30);
+
+  const invoiceItems = await Promise.all(
+    (items || []).map(async (item) => {
+      const product = await Product.findById(item.product).select('name');
+      return {
+        product: item.product,
+        productName: product?.name || 'Unknown Product',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.total
+      };
+    })
+  );
+
+  return createPurchaseInvoiceWithUniqueNumber({
+    purchaseOrder: purchaseOrder._id,
+    supplier: supplierId || purchaseOrder.supplier,
+    items: invoiceItems,
+    subtotal: purchaseOrder.subtotal,
+    tax: purchaseOrder.tax,
+    total: purchaseOrder.total,
+    dueDate,
+    paymentTerms,
+    status: 'sent',
+    notes: notes ?? purchaseOrder.notes ?? ''
+  });
+}
 
 // @route   GET /api/purchasing/orders
 // @desc    Get all purchase orders
@@ -57,8 +197,7 @@ router.post('/orders', [
   body('supplier').isMongoId().withMessage('Valid supplier ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.product').isMongoId().withMessage('Valid product ID is required'),
-  body('items.*.quantity').isNumeric().withMessage('Valid quantity is required'),
-  body('items.*.unitPrice').isNumeric().withMessage('Valid unit price is required')
+  body('items.*.quantity').isNumeric().withMessage('Valid quantity is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -72,20 +211,14 @@ router.post('/orders', [
 
     const { supplier, items, expectedDelivery, notes } = req.body;
 
-    // Generate order number
-    const orderCount = await PurchaseOrder.countDocuments();
-    const orderNumber = `PO${String(orderCount + 1).padStart(4, '0')}`;
-
-    // Calculate totals
-    let subtotal = 0;
-    const processedItems = items.map(item => {
-      const total = item.quantity * item.unitPrice;
-      subtotal += total;
-      return {
-        ...item,
-        total
-      };
-    });
+    let processedItems;
+    let subtotal;
+    try {
+      ({ processedItems, subtotal } = await buildPurchaseOrderItemsFromProducts(items));
+    } catch (e) {
+      const code = e.statusCode || 400;
+      return res.status(code).json({ success: false, message: e.message });
+    }
 
     const tax = subtotal * 0.1; // 10% tax
     const total = subtotal + tax;
@@ -93,8 +226,7 @@ router.post('/orders', [
     // Find employee record for the user
     let employee = await Employee.findOne({ user: req.user.id });
 
-    const purchaseOrder = await PurchaseOrder.create({
-      orderNumber,
+    const purchaseOrder = await createPurchaseOrderWithUniqueNumber({
       supplier,
       items: processedItems,
       subtotal,
@@ -118,50 +250,10 @@ router.post('/orders', [
       req
     });
 
-    // Generate purchase invoice number
-    const lastInvoice = await PurchaseInvoice.findOne().sort({ invoiceNumber: -1 });
-    let invoiceNumber;
-    
-    if (lastInvoice && lastInvoice.invoiceNumber) {
-      const lastNumber = parseInt(lastInvoice.invoiceNumber.replace('PINV', '')) || 0;
-      invoiceNumber = `PINV${String(lastNumber + 1).padStart(4, '0')}`;
-    } else {
-      invoiceNumber = 'PINV0001';
-    }
-
-    // Calculate due date (30 days from invoice date)
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
-
-    // Get supplier payment terms if available
-    const supplierData = await Supplier.findById(supplier);
-    const paymentTerms = supplierData?.paymentTerms || 'Net 30';
-
-    // Create invoice with product names
-    const invoiceItems = await Promise.all(
-      processedItems.map(async (item) => {
-        const product = await Product.findById(item.product);
-        return {
-          product: item.product,
-          productName: product?.name || 'Unknown Product',
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total
-        };
-      })
-    );
-
-    const purchaseInvoice = await PurchaseInvoice.create({
-      invoiceNumber,
-      purchaseOrder: purchaseOrder._id,
-      supplier: supplier,
-      items: invoiceItems,
-      subtotal,
-      tax,
-      total,
-      dueDate,
-      paymentTerms,
-      status: 'sent',
+    await ensureInvoiceForPurchaseOrder({
+      purchaseOrder,
+      supplierId: supplier,
+      items: processedItems,
       notes: notes || ''
     });
 
@@ -171,6 +263,12 @@ router.post('/orders', [
     });
   } catch (error) {
     console.error('Create purchase order error:', error);
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Duplicate purchase order number generated. Please try again.'
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -187,8 +285,7 @@ router.put('/orders/:id', [
   body('supplier').optional().isMongoId().withMessage('Valid supplier ID is required'),
   body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.product').optional().isMongoId().withMessage('Valid product ID is required'),
-  body('items.*.quantity').optional().isNumeric().withMessage('Valid quantity is required'),
-  body('items.*.unitPrice').optional().isNumeric().withMessage('Valid unit price is required')
+  body('items.*.quantity').optional().isNumeric().withMessage('Valid quantity is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -222,16 +319,14 @@ router.put('/orders/:id', [
     // Update fields if provided
     if (supplier) purchaseOrder.supplier = supplier;
     if (items && items.length > 0) {
-      // Calculate new totals
-      let subtotal = 0;
-      const processedItems = items.map(item => {
-        const total = item.quantity * item.unitPrice;
-        subtotal += total;
-        return {
-          ...item,
-          total
-        };
-      });
+      let processedItems;
+      let subtotal;
+      try {
+        ({ processedItems, subtotal } = await buildPurchaseOrderItemsFromProducts(items));
+      } catch (e) {
+        const code = e.statusCode || 400;
+        return res.status(code).json({ success: false, message: e.message });
+      }
       purchaseOrder.items = processedItems;
       purchaseOrder.subtotal = subtotal;
       purchaseOrder.tax = subtotal * 0.1; // 10% tax
@@ -395,13 +490,10 @@ router.post('/auto-generate', [
   authorize('admin', 'manager')
 ], async (req, res) => {
   try {
-    // Find products with low stock
-    const lowStockProducts = await Product.find({
-      $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-      isActive: true,
-      supplier: { $exists: true, $ne: null }
-    })
-    .populate('supplier', 'name contactPerson email');
+    const lowStockProducts = await Product.find(lowStockRawMaterialMongoFilter()).populate(
+      'supplier',
+      'name contactPerson email'
+    );
 
     const createdOrders = [];
 
@@ -410,10 +502,6 @@ router.post('/auto-generate', [
 
       const suggestedQuantity = product.maxStockLevel - product.currentStock;
       
-      // Generate order number
-      const orderCount = await PurchaseOrder.countDocuments();
-      const orderNumber = `PO${String(orderCount + createdOrders.length + 1).padStart(4, '0')}`;
-
       // Calculate totals
       const quantity = Math.max(suggestedQuantity, product.minStockLevel);
       const unitPrice = product.unitCost;
@@ -422,8 +510,7 @@ router.post('/auto-generate', [
       const tax = subtotal * 0.1; // 10% tax
       const totalWithTax = subtotal + tax;
 
-      const purchaseOrder = await PurchaseOrder.create({
-        orderNumber,
+      const purchaseOrder = await createPurchaseOrderWithUniqueNumber({
         supplier: product.supplier._id,
         items: [{
           product: product._id,
@@ -438,6 +525,12 @@ router.post('/auto-generate', [
         autoGenerated: true,
         source: 'inventory',
         notes: `Auto-generated from inventory: Current stock ${product.currentStock}, Min level ${product.minStockLevel}`
+      });
+      await ensureInvoiceForPurchaseOrder({
+        purchaseOrder,
+        supplierId: product.supplier._id,
+        items: purchaseOrder.items,
+        notes: purchaseOrder.notes || ''
       });
 
       await purchaseOrder.populate('supplier', 'name contactPerson email');
@@ -465,12 +558,10 @@ router.post('/auto-generate', [
 // @access  Private
 router.get('/auto-requests', protect, async (req, res) => {
   try {
-    // Find products with low stock
-    const lowStockProducts = await Product.find({
-      $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-      isActive: true
-    })
-    .populate('supplier', 'name contactPerson email');
+    const lowStockProducts = await Product.find(lowStockRawMaterialMongoFilter()).populate(
+      'supplier',
+      'name contactPerson email'
+    );
 
     const autoRequests = lowStockProducts.map(product => ({
       product: {
@@ -755,12 +846,10 @@ router.get('/trends', protect, async (req, res) => {
 // @access  Private
 router.get('/low-stock-alerts', protect, async (req, res) => {
   try {
-    // Find products with low stock
-    const lowStockProducts = await Product.find({
-      $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-      isActive: true
-    })
-    .populate('supplier', 'name contactPerson email');
+    const lowStockProducts = await Product.find(lowStockRawMaterialMongoFilter()).populate(
+      'supplier',
+      'name contactPerson email'
+    );
 
     const alerts = lowStockProducts.map(product => ({
       product: {
@@ -1157,42 +1246,6 @@ router.get('/trends', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to generate trends report'
-    });
-  }
-});
-
-// @route   GET /api/purchasing/low-stock-alerts
-// @desc    Get low stock alerts
-// @access  Private
-router.get('/low-stock-alerts', protect, async (req, res) => {
-  try {
-    const products = await Product.find({
-      $or: [
-        { currentStock: { $lte: 0 } },
-        { currentStock: { $lte: { $multiply: ['$minStockLevel', 1.2] } } }
-      ]
-    }).select('name sku currentStock minStockLevel unitCost category');
-
-    const lowStockProducts = products.map(product => ({
-      ...product.toObject(),
-      stockStatus: product.currentStock <= 0 ? 'out_of_stock' : 'low_stock',
-      recommendedOrderQuantity: Math.max(0, (product.minStockLevel * 2) - product.currentStock)
-    }));
-
-    res.json({
-      success: true,
-      data: {
-        products: lowStockProducts,
-        totalAlerts: lowStockProducts.length,
-        outOfStock: lowStockProducts.filter(p => p.stockStatus === 'out_of_stock').length,
-        lowStock: lowStockProducts.filter(p => p.stockStatus === 'low_stock').length
-      }
-    });
-  } catch (error) {
-    console.error('Low stock alerts error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate low stock alerts'
     });
   }
 });

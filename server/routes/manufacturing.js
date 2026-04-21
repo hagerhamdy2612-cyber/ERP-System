@@ -4,8 +4,13 @@ const ProductionOrder = require('../models/ProductionOrder');
 const Product = require('../models/Product');
 const Employee = require('../models/Employee');
 const InventoryTransaction = require('../models/InventoryTransaction');
-const { protect, authorize } = require('../middleware/auth');
+const {
+  protect,
+  authorizeManufacturingProduction,
+  authorizeManufacturingManagers
+} = require('../middleware/auth');
 const { archiveDocument } = require('../services/archiveService');
+const { shouldTriggerAutoPurchaseForProduct } = require('../utils/autoPurchaseLowStock');
 
 const router = express.Router();
 
@@ -47,7 +52,7 @@ router.get('/production-orders', protect, async (req, res) => {
 // @access  Private (Manufacturing, Admin)
 router.post('/production-orders', [
   protect,
-  authorize('admin', 'manager'),
+  authorizeManufacturingProduction,
   body('product').isMongoId().withMessage('Valid product ID is required'),
   body('quantity').isNumeric().withMessage('Valid quantity is required')
 ], async (req, res) => {
@@ -117,12 +122,136 @@ router.post('/production-orders', [
   }
 });
 
+// @route   PUT /api/manufacturing/production-orders/:id
+// @desc    Update production order (pending: product/qty/notes/cost; in-progress: notes and manufacturing cost only)
+// @access  Private (Manufacturing, Admin)
+router.put('/production-orders/:id', [
+  protect,
+  authorizeManufacturingProduction,
+  body('product').optional().isMongoId().withMessage('Valid product ID is required'),
+  body('quantity').optional().isNumeric().withMessage('Valid quantity is required'),
+  body('notes').optional(),
+  body('manufacturingCost').optional().isNumeric()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const productionOrder = await ProductionOrder.findById(req.params.id);
+    if (!productionOrder) {
+      return res.status(404).json({
+        success: false,
+        message: 'Production order not found'
+      });
+    }
+
+    if (productionOrder.status === 'completed' || productionOrder.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot edit a completed or cancelled production order'
+      });
+    }
+
+    const { product: productId, quantity, notes, manufacturingCost } = req.body;
+
+    if (productionOrder.status === 'in-progress') {
+      if (productId !== undefined || quantity !== undefined) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Cannot change product or quantity while production is in progress. You can update notes and manufacturing cost only.'
+        });
+      }
+      if (notes !== undefined) productionOrder.notes = notes;
+      if (manufacturingCost !== undefined) {
+        productionOrder.manufacturingCost = Number(manufacturingCost);
+      }
+      await productionOrder.save();
+      await productionOrder.populate('product', 'name sku');
+      await productionOrder.populate('materials.product', 'name sku unitCost');
+      return res.json({
+        success: true,
+        data: productionOrder
+      });
+    }
+
+    // pending — full update (same BOM rules as create)
+    const targetProductId = productId || productionOrder.product;
+    const orderQuantity =
+      quantity != null ? Number(quantity) : productionOrder.quantity;
+
+    if (!orderQuantity || orderQuantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid quantity is required'
+      });
+    }
+
+    const product = await Product.findById(targetProductId).populate(
+      'requiredMaterials.product',
+      'name sku unitCost'
+    );
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    if (!product.requiredMaterials || product.requiredMaterials.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'This product has no required materials defined. Add them in Inventory > Final Products (Required Raw Materials).'
+      });
+    }
+
+    const materials = [];
+    for (const rm of product.requiredMaterials) {
+      const materialProduct = rm.product;
+      if (!materialProduct) continue;
+      const qty = (rm.quantity || 0) * orderQuantity;
+      materials.push({
+        product: materialProduct._id,
+        quantity: qty,
+        unitCost: materialProduct.unitCost ?? 0
+      });
+    }
+
+    productionOrder.product = targetProductId;
+    productionOrder.quantity = orderQuantity;
+    productionOrder.materials = materials;
+    if (notes !== undefined) productionOrder.notes = notes;
+    if (manufacturingCost !== undefined) {
+      productionOrder.manufacturingCost = Number(manufacturingCost);
+    }
+
+    await productionOrder.save();
+    await productionOrder.populate('product', 'name sku');
+    await productionOrder.populate('materials.product', 'name sku unitCost');
+
+    res.json({
+      success: true,
+      data: productionOrder
+    });
+  } catch (error) {
+    console.error('Update production order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 // @route   PUT /api/manufacturing/production-orders/:id/start
 // @desc    Start production order
 // @access  Private (Manufacturing, Admin)
 router.put('/production-orders/:id/start', [
   protect,
-  authorize('admin', 'manager')
+  authorizeManufacturingProduction
 ], async (req, res) => {
   try {
     const productionOrder = await ProductionOrder.findById(req.params.id);
@@ -175,8 +304,7 @@ router.put('/production-orders/:id/start', [
         performedBy: req.user.id
       });
 
-      // Check if raw material stock is low and trigger auto PO generation
-      if (product.category === 'raw-material' && product.currentStock <= product.minStockLevel && product.supplier) {
+      if (shouldTriggerAutoPurchaseForProduct(product)) {
         const schedulerService = require('../services/schedulerService');
         schedulerService.generateAutoPurchaseOrders().catch(err => {
           console.error('Error generating auto POs after production start:', err);
@@ -205,7 +333,7 @@ router.put('/production-orders/:id/start', [
 // @access  Private (Manufacturing, Admin)
 router.put('/production-orders/:id/complete', [
   protect,
-  authorize('admin', 'manager')
+  authorizeManufacturingProduction
 ], async (req, res) => {
   try {
     const productionOrder = await ProductionOrder.findById(req.params.id);
@@ -267,7 +395,7 @@ router.put('/production-orders/:id/complete', [
 // @access  Private (Manufacturing, Admin)
 router.put('/production-orders/:id/assign', [
   protect,
-  authorize('admin', 'manager'),
+  authorizeManufacturingManagers,
   body('employees').isArray().withMessage('Employees array is required')
 ], async (req, res) => {
   try {
@@ -324,7 +452,7 @@ router.put('/production-orders/:id/assign', [
 // @access  Private (Manufacturing, Admin)
 router.delete('/production-orders/:id', [
   protect,
-  authorize('admin', 'manager')
+  authorizeManufacturingManagers
 ], async (req, res) => {
   try {
     const productionOrder = await ProductionOrder.findById(req.params.id);

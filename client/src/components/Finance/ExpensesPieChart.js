@@ -9,12 +9,15 @@ import {
   Legend
 } from 'recharts';
 import { PieChart as PieChartIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Card from '../Card';
 
 const ExpensesPieChart = () => {
+  const { t, i18n } = useTranslation();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const locale = i18n.language === 'ar' ? 'ar-EG' : 'en-US';
 
   // Color palette for categories
   const COLORS = [
@@ -49,7 +52,7 @@ const ExpensesPieChart = () => {
     return (
       <Card>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500 dark:text-gray-400">Loading chart...</div>
+          <div className="text-gray-500 dark:text-gray-400">{t('finance.charts.loadingChart')}</div>
         </div>
       </Card>
     );
@@ -61,7 +64,7 @@ const ExpensesPieChart = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <PieChartIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No expenses this month</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('finance.charts.noExpensesThisMonth')}</p>
           </div>
         </div>
       </Card>
@@ -84,16 +87,16 @@ const ExpensesPieChart = () => {
         <div className="bg-white dark:bg-slate-800 p-3 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg">
           <p className="font-semibold text-gray-900 dark:text-white">{data.name}</p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Amount: {data.value.toLocaleString('en-US', {
+            {t('finance.charts.amount')}: {data.value.toLocaleString(locale, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2
             })} EGP
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Percentage: {data.payload.percentage}%
+            {t('finance.charts.percentage')}: {data.payload.percentage}%
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {data.payload.count} expense{data.payload.count !== 1 ? 's' : ''}
+            {t('finance.charts.expenseCount', { count: data.payload.count })}
           </p>
         </div>
       );
@@ -105,7 +108,7 @@ const ExpensesPieChart = () => {
     <Card>
       <div className="flex items-center mb-6">
         <PieChartIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" />
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Expenses by Category</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('finance.charts.expensesByCategory')}</h2>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ResponsiveContainer width="100%" height={300}>
@@ -142,7 +145,7 @@ const ExpensesPieChart = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {item.value.toLocaleString('en-US', {
+                    {item.value.toLocaleString(locale, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}{' '}
@@ -155,9 +158,9 @@ const ExpensesPieChart = () => {
           </div>
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.total')}</span>
               <span className="text-lg font-bold text-gray-900 dark:text-white">
-                {total.toLocaleString('en-US', {
+                {total.toLocaleString(locale, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2
                 })}{' '}

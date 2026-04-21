@@ -1,9 +1,9 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { canAccessModule, canAccessRecruitment } from '../config/permissions';
+import { canAccessModule, canAccessPayroll } from '../config/permissions';
 
-const ProtectedRecruitmentRoute = ({ children, fallbackPath = '/app/hr/employees' }) => {
+const ProtectedPayrollRoute = ({ children, fallbackPath = '/app/hr/employees' }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -22,11 +22,11 @@ const ProtectedRecruitmentRoute = ({ children, fallbackPath = '/app/hr/employees
     return <Navigate to={fallbackPath} replace />;
   }
 
-  if (!canAccessRecruitment(user)) {
+  if (!canAccessPayroll(user)) {
     return <Navigate to={fallbackPath} replace />;
   }
 
   return children;
 };
 
-export default ProtectedRecruitmentRoute;
+export default ProtectedPayrollRoute;

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/Card';
 import {
@@ -20,12 +21,88 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
+const SalesChartTooltip = ({ active, payload }) => {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language?.startsWith('ar') ? 'ar-EG' : 'en-US';
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const chartTooltipStyle = {
+    backgroundColor: isDark ? '#1e293b' : '#fff',
+    border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    color: isDark ? '#fff' : '#000',
+    padding: '10px 12px',
+    fontSize: '13px'
+  };
+  const muted = isDark ? '#94a3b8' : '#4b5563';
+  const accent = isDark ? '#34d399' : '#059669';
+  return (
+    <div style={chartTooltipStyle}>
+      <p style={{ fontWeight: 600 }}>{p.orderNumber}</p>
+      <p style={{ marginTop: 6, color: muted, fontSize: 12 }}>
+        {t('sales.dashboard.tooltipDelivery')}: {p.deliveryLabel}
+        {p.usedOrderDate ? ` ${t('sales.dashboard.tooltipNoDeliveryDate')}` : ''}
+      </p>
+      <p style={{ color: muted, fontSize: 12 }}>{t('sales.dashboard.tooltipCustomer')}: {p.customerName}</p>
+      <p style={{ marginTop: 6, fontWeight: 600, color: accent }}>
+        {t('sales.dashboard.tooltipOrderTotal')}: ${Number(p.revenue).toLocaleString(locale)}
+      </p>
+    </div>
+  );
+};
+
+const buildSalesRevenueChartData = (orders, locale) => {
+  const getSortTime = (o) => {
+    const raw = o.deliveryDate || o.orderDate;
+    const time = new Date(raw);
+    return Number.isNaN(time.getTime()) ? 0 : time.getTime();
+  };
+
+  const chartOrders = orders
+    .filter((o) => o.status !== 'cancelled')
+    .sort((a, b) => getSortTime(a) - getSortTime(b));
+
+  return chartOrders.map((order) => {
+    const delivery = order.deliveryDate
+      ? new Date(order.deliveryDate)
+      : new Date(order.orderDate);
+    const deliveryStr = Number.isNaN(delivery.getTime())
+      ? '—'
+      : delivery.toLocaleDateString(locale, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+    const shortDate = Number.isNaN(delivery.getTime())
+      ? '—'
+      : delivery.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    return {
+      date: `${shortDate} · ${order.orderNumber}`,
+      revenue: order.total || 0,
+      orderNumber: order.orderNumber,
+      deliveryLabel: deliveryStr,
+      customerName: order.customer?.name || '—',
+      usedOrderDate: !order.deliveryDate
+    };
+  });
+};
+
 const SalesDashboard = () => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const locale = i18n.language?.startsWith('ar') ? 'ar-EG' : 'en-US';
   const [kpis, setKpis] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
-  const [revenueChartData, setRevenueChartData] = useState([]);
+  const [ordersList, setOrdersList] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const revenueChartData = useMemo(
+    () => buildSalesRevenueChartData(ordersList, locale),
+    [ordersList, locale]
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -40,57 +117,19 @@ const SalesDashboard = () => {
 
       const orders = ordersRes.data.data || [];
       const customers = customersRes.data.data || [];
-      
-      // Calculate KPIs
+
       const totalOrders = orders.length;
-      const pendingOrders = orders.filter(o => o.status === 'pending').length;
-      const confirmedOrders = orders.filter(o => o.status === 'confirmed').length;
-      // Count delivered orders - include both 'delivered' and 'shipped' as they represent completed orders
-      const deliveredOrders = orders.filter(o => 
-        o.status === 'delivered' || o.status === 'shipped'
+      const pendingOrders = orders.filter((o) => o.status === 'pending').length;
+      const confirmedOrders = orders.filter((o) => o.status === 'confirmed').length;
+      const deliveredOrders = orders.filter(
+        (o) => o.status === 'delivered' || o.status === 'shipped'
       ).length;
       const totalRevenue = orders
-        .filter(o => ['confirmed', 'shipped', 'delivered'].includes(o.status))
+        .filter((o) => ['confirmed', 'shipped', 'delivered'].includes(o.status))
         .reduce((sum, o) => sum + (o.total || 0), 0);
       const totalCustomers = customers.length;
-      
-      // Line chart: one point per sales order, positioned by the delivery date chosen on the form.
-      const getSortTime = (o) => {
-        const raw = o.deliveryDate || o.orderDate;
-        const t = new Date(raw);
-        return Number.isNaN(t.getTime()) ? 0 : t.getTime();
-      };
 
-      const chartOrders = orders
-        .filter((o) => o.status !== 'cancelled')
-        .sort((a, b) => getSortTime(a) - getSortTime(b));
-
-      const revenueData = chartOrders.map((order) => {
-        const delivery = order.deliveryDate
-          ? new Date(order.deliveryDate)
-          : new Date(order.orderDate);
-        const deliveryStr = Number.isNaN(delivery.getTime())
-          ? '—'
-          : delivery.toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            });
-        const shortDate = Number.isNaN(delivery.getTime())
-          ? '—'
-          : delivery.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        return {
-          date: `${shortDate} · ${order.orderNumber}`,
-          revenue: order.total || 0,
-          orderNumber: order.orderNumber,
-          deliveryLabel: deliveryStr,
-          customerName: order.customer?.name || '—',
-          usedOrderDate: !order.deliveryDate
-        };
-      });
-
-      setRevenueChartData(revenueData);
+      setOrdersList(orders);
       setKpis({
         totalOrders,
         pendingOrders,
@@ -100,7 +139,6 @@ const SalesDashboard = () => {
         totalCustomers
       });
 
-      // Get recent orders
       setRecentOrders(orders.slice(0, 5));
     } catch (error) {
       console.error('Dashboard data fetch error:', error);
@@ -137,44 +175,13 @@ const SalesDashboard = () => {
     }
   };
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  const chartTooltipStyle = {
-    backgroundColor: isDark ? '#1e293b' : '#fff',
-    border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    color: isDark ? '#fff' : '#000',
-    padding: '10px 12px',
-    fontSize: '13px'
-  };
-
-  const SalesChartTooltip = ({ active, payload }) => {
-    if (!active || !payload?.length) return null;
-    const p = payload[0].payload;
-    const muted = isDark ? '#94a3b8' : '#4b5563';
-    const accent = isDark ? '#34d399' : '#059669';
-    return (
-      <div style={chartTooltipStyle}>
-        <p style={{ fontWeight: 600 }}>{p.orderNumber}</p>
-        <p style={{ marginTop: 6, color: muted, fontSize: 12 }}>
-          Delivery: {p.deliveryLabel}
-          {p.usedOrderDate ? ' (no delivery date — using order date)' : ''}
-        </p>
-        <p style={{ color: muted, fontSize: 12 }}>Customer: {p.customerName}</p>
-        <p style={{ marginTop: 6, fontWeight: 600, color: accent }}>
-          Order total: ${Number(p.revenue).toLocaleString()}
-        </p>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Sales Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('sales.dashboard.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Overview of your sales performance and activities
+          {t('sales.dashboard.description')}
         </p>
       </div>
 
@@ -191,7 +198,7 @@ const SalesDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Orders
+                    {t('sales.dashboard.totalOrders')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalOrders || 0}
@@ -213,7 +220,7 @@ const SalesDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Customers
+                    {t('sales.dashboard.customers')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalCustomers || 0}
@@ -235,7 +242,7 @@ const SalesDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Delivered
+                    {t('sales.dashboard.delivered')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.deliveredOrders || 0}
@@ -253,15 +260,15 @@ const SalesDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-                Orders by delivery date
+                {t('sales.dashboard.chartTitle')}
               </h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                One point per order using the delivery date from the form (sorted by that date). Line height is that order&apos;s total.
+                {t('sales.dashboard.chartSubtitle')}
               </p>
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                ${(kpis?.totalRevenue || 0).toLocaleString()}
+                ${(kpis?.totalRevenue || 0).toLocaleString(locale)}
               </p>
             </div>
           </div>
@@ -286,16 +293,7 @@ const SalesDashboard = () => {
                     axisLine={false}
                     tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                   />
-                  <Tooltip 
-                    formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']}
-                    contentStyle={{
-                      backgroundColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
-                      border: `1px solid ${document.documentElement.classList.contains('dark') ? '#334155' : '#e5e7eb'}`,
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                      color: document.documentElement.classList.contains('dark') ? '#fff' : '#000'
-                    }}
-                  />
+                  <Tooltip content={<SalesChartTooltip />} />
                   <Line 
                     type="monotone" 
                     dataKey="revenue" 
@@ -308,7 +306,7 @@ const SalesDashboard = () => {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
-                No sales orders to chart yet
+                {t('sales.dashboard.chartEmpty')}
               </div>
             )}
           </div>
@@ -319,14 +317,14 @@ const SalesDashboard = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-            Recent Sales Orders
+            {t('sales.dashboard.recentOrders')}
           </h3>
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-slate-700">
           {recentOrders.length === 0 ? (
             <li className="px-4 py-5 sm:px-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                No sales orders yet
+                {t('sales.dashboard.noOrders')}
               </p>
             </li>
           ) : (
@@ -344,7 +342,7 @@ const SalesDashboard = () => {
                         </p>
                       </div>
                       <div className="mt-1 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        <span>{order.customer?.name || 'Unknown Customer'}</span>
+                        <span>{order.customer?.name || t('sales.orders.unknownCustomer')}</span>
                         <span className="mx-2">•</span>
                         <span>${(order.total || 0).toLocaleString()}</span>
                         <span className="mx-2">•</span>
@@ -354,7 +352,7 @@ const SalesDashboard = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {t(`sales.reports.status.${order.status}`, { defaultValue: order.status })}
                     </span>
                   </div>
                 </div>

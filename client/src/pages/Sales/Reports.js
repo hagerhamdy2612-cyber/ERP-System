@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
 import { 
   BarChart3, 
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 const SalesReports = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -51,7 +53,7 @@ const SalesReports = () => {
         trends: trendsRes.data.data
       });
     } catch (error) {
-      toast.error('Failed to fetch reports data');
+      toast.error(t('sales.reports.errors.fetchFailed'));
       console.error('Reports fetch error:', error);
     } finally {
       setLoading(false);
@@ -80,9 +82,9 @@ const SalesReports = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('Sales report exported successfully');
+      toast.success(t('sales.reports.messages.exportSuccess'));
     } catch (error) {
-      toast.error('Failed to export sales report');
+      toast.error(t('sales.reports.errors.exportFailed'));
     }
   };
 
@@ -131,7 +133,7 @@ const SalesReports = () => {
       });
 
       if (reportData.length === 0) {
-        toast.error('No orders found for the selected date range');
+        toast.error(t('sales.reports.errors.noOrdersInDateRange'));
         setSendLoading(false);
         return;
       }
@@ -143,13 +145,13 @@ const SalesReports = () => {
       });
 
       if (response.data.success) {
-        toast.success(response.data.message || 'Report sent successfully');
+        toast.success(response.data.message || t('sales.reports.messages.sendSuccess'));
       } else {
-        toast.error(response.data.message || 'Failed to send report');
+        toast.error(response.data.message || t('sales.reports.errors.sendFailed'));
       }
     } catch (error) {
       console.error('Send report error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to send report';
+      const errorMessage = error.response?.data?.message || error.message || t('sales.reports.errors.sendFailed');
       toast.error(errorMessage);
     } finally {
       setSendLoading(false);
@@ -191,9 +193,9 @@ const SalesReports = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Sales Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('sales.reports.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Comprehensive sales analytics and insights
+            {t('sales.reports.description')}
           </p>
         </div>
         <div className="flex space-x-3">
@@ -202,7 +204,7 @@ const SalesReports = () => {
             className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            {t('sales.reports.refresh')}
           </button>
           <button
             onClick={sendReport}
@@ -210,14 +212,14 @@ const SalesReports = () => {
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
           >
             <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? 'Sending...' : 'Send Report'}
+            {sendLoading ? t('sales.reports.sending') : t('sales.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            {t('sales.reports.exportReport')}
           </button>
         </div>
       </div>
@@ -228,7 +230,7 @@ const SalesReports = () => {
           <Filter className="h-5 w-5 text-gray-400 dark:text-gray-500" />
           <div className="flex space-x-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sales.reports.startDate')}</label>
               <input
                 type="date"
                 value={dateRange.startDate}
@@ -237,7 +239,7 @@ const SalesReports = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sales.reports.endDate')}</label>
               <input
                 type="date"
                 value={dateRange.endDate}
@@ -252,39 +254,39 @@ const SalesReports = () => {
       {/* Key Metrics */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Revenue"
+          title={t('sales.reports.totalRevenue')}
           value={`$${reports.revenue?.totalRevenue?.toLocaleString() || '0'}`}
           icon={DollarSign}
           color="text-green-600"
-          subtitle={`${reports.revenue?.orderCount || 0} orders`}
+          subtitle={t('sales.reports.ordersCount', { count: reports.revenue?.orderCount || 0 })}
         />
         <StatCard
-          title="Average Order Value"
+          title={t('sales.reports.averageOrderValue')}
           value={`$${reports.revenue?.averageOrderValue?.toFixed(2) || '0'}`}
           icon={ShoppingCart}
           color="text-blue-600"
-          subtitle="Per order"
+          subtitle={t('sales.reports.perOrder')}
         />
         <StatCard
-          title="Active Customers"
+          title={t('sales.reports.activeCustomers')}
           value={reports.customers?.activeCustomers || '0'}
           icon={Users}
           color="text-purple-600"
-          subtitle="In period"
+          subtitle={t('sales.reports.inPeriod')}
         />
         <StatCard
-          title="Top Product"
-          value={reports.products?.topProduct?.name || 'N/A'}
+          title={t('sales.reports.topProduct')}
+          value={reports.products?.topProduct?.name || t('common.unknown')}
           icon={BarChart3}
           color="text-orange-600"
-          subtitle={`${reports.products?.topProduct?.quantitySold || 0} sold`}
+          subtitle={t('sales.reports.soldCount', { count: reports.products?.topProduct?.quantitySold || 0 })}
         />
       </div>
 
       {/* Revenue Trends */}
       <Card>
         <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-          Revenue Trends
+          {t('sales.reports.revenueTrends')}
         </h3>
         {reports.trends?.monthlyRevenue && (
           <div className="space-y-4">
@@ -312,7 +314,7 @@ const SalesReports = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-            Top Customers
+            {t('sales.reports.topCustomers')}
           </h3>
         </div>
         {reports.customers?.topCustomers && (
@@ -321,16 +323,16 @@ const SalesReports = () => {
               <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Customer
+                    {t('sales.reports.customer')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Orders
+                    {t('sales.reports.orders')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Total Spent
+                    {t('sales.reports.totalSpent')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Last Order
+                    {t('sales.reports.lastOrder')}
                   </th>
                 </tr>
               </thead>
@@ -361,7 +363,7 @@ const SalesReports = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-            Top Selling Products
+            {t('sales.reports.topSellingProducts')}
           </h3>
         </div>
         {reports.products?.topProducts && (
@@ -370,16 +372,16 @@ const SalesReports = () => {
               <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Product
+                    {t('common.products')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Quantity Sold
+                    {t('sales.reports.quantitySold')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Revenue
+                    {t('sales.reports.revenue')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Avg Price
+                    {t('sales.reports.averagePrice')}
                   </th>
                 </tr>
               </thead>
@@ -409,7 +411,7 @@ const SalesReports = () => {
       {/* Order Status Distribution */}
       <Card>
         <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-          Order Status Distribution
+          {t('sales.reports.orderStatusDistribution')}
         </h3>
         {reports.orders?.statusDistribution && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -425,7 +427,9 @@ const SalesReports = () => {
                     }`}></div>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{status}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                      {t(`sales.reports.status.${status}`, { defaultValue: status })}
+                    </p>
                     <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">{count}</p>
                   </div>
                 </div>

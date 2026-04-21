@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
 import {
   Package,
@@ -21,8 +22,19 @@ import {
   Tooltip
 } from 'recharts';
 
+const categorySlugToLabelKey = (slug) => {
+  const map = {
+    'raw-material': 'inventory.dashboard.categoryRawMaterial',
+    'final-product': 'inventory.dashboard.categoryFinalProduct',
+    'finished-good': 'inventory.dashboard.categoryFinalProduct'
+  };
+  return map[slug] || null;
+};
+
 const InventoryDashboard = () => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const locale = i18n.language?.startsWith('ar') ? 'ar-EG' : 'en-US';
   const [kpis, setKpis] = useState(null);
   const [lowStockProducts, setLowStockProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +65,7 @@ const InventoryDashboard = () => {
 
       // Group by category
       const byCategory = products.reduce((acc, prod) => {
-        const category = prod.category || 'Unknown';
+        const category = prod.category || t('common.unknown');
         acc[category] = (acc[category] || 0) + 1;
         return acc;
       }, {});
@@ -89,18 +101,18 @@ const InventoryDashboard = () => {
   };
 
   const getStatusText = (current, min) => {
-    if (current === 0) return 'Out of Stock';
-    if (current <= min) return 'Low Stock';
-    return 'In Stock';
+    if (current === 0) return t('inventory.status.outOfStock');
+    if (current <= min) return t('inventory.status.lowStock');
+    return t('inventory.status.inStock');
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('inventory.dashboard.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Overview of your inventory levels and stock management
+          {t('inventory.dashboard.description')}
         </p>
       </div>
 
@@ -117,7 +129,7 @@ const InventoryDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Products
+                    {t('inventory.dashboard.totalProducts')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalProducts || 0}
@@ -139,10 +151,10 @@ const InventoryDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Stock Value
+                    {t('inventory.dashboard.stockValue')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    ${(kpis?.stockValue || 0).toLocaleString()}
+                    ${(kpis?.stockValue || 0).toLocaleString(locale)}
                   </dd>
                 </dl>
               </div>
@@ -161,7 +173,7 @@ const InventoryDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Low Stock
+                    {t('inventory.dashboard.lowStock')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.lowStockCount || 0}
@@ -183,7 +195,7 @@ const InventoryDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Out of Stock
+                    {t('inventory.dashboard.outOfStock')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.outOfStockCount || 0}
@@ -200,14 +212,14 @@ const InventoryDashboard = () => {
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white flex items-center">
             <AlertTriangle className="h-5 w-5 text-yellow-500 dark:text-yellow-400 mr-2" />
-            Low Stock Alerts
+            {t('inventory.dashboard.lowStockAlerts')}
           </h3>
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-slate-700">
           {lowStockProducts.length === 0 ? (
             <li className="px-4 py-5 sm:px-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                No low stock alerts
+                {t('inventory.dashboard.noLowStockAlerts')}
               </p>
             </li>
           ) : (
@@ -220,11 +232,11 @@ const InventoryDashboard = () => {
                         {product.name}
                       </p>
                       <div className="mt-1 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        <span>SKU: {product.sku}</span>
+                        <span>{t('inventory.dashboard.sku')}: {product.sku}</span>
                         <span className="mx-2">•</span>
-                        <span>Stock: {product.currentStock}</span>
+                        <span>{t('inventory.dashboard.stock')}: {product.currentStock}</span>
                         <span className="mx-2">•</span>
-                        <span>Min: {product.minStockLevel}</span>
+                        <span>{t('inventory.dashboard.min')}: {product.minStockLevel}</span>
                       </div>
                     </div>
                   </div>
@@ -243,17 +255,21 @@ const InventoryDashboard = () => {
       {/* Category Distribution */}
       {kpis?.byCategory && Object.keys(kpis.byCategory).length > 0 && (() => {
         const categoryColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
-        const chartData = Object.entries(kpis.byCategory).map(([category, count], index) => ({
-          name: category.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          value: count,
-          color: categoryColors[index % categoryColors.length]
-        }));
+        const chartData = Object.entries(kpis.byCategory).map(([category, count], index) => {
+          const labelKey = categorySlugToLabelKey(category);
+          const name = labelKey ? t(labelKey) : category;
+          return {
+            name,
+            value: count,
+            color: categoryColors[index % categoryColors.length]
+          };
+        });
 
         return (
           <Card padding={false} className="overflow-hidden">
             <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
               <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-                Products by Category
+                {t('inventory.dashboard.productsByCategory')}
               </h3>
             </div>
             <div className="px-4 py-5 sm:p-6">

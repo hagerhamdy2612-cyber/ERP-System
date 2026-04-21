@@ -157,8 +157,35 @@ async function restoreArchive(archiveId, userId) {
   }
 }
 
+/**
+ * Permanently remove an archive row. If the document was not restored, also hard-deletes the original record.
+ * If it was restored, only the archive history row is removed (the live document stays).
+ */
+async function permanentDeleteArchive(archiveId) {
+  const archive = await Archive.findById(archiveId).lean();
+  if (!archive) {
+    const err = new Error('Archive record not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!archive.isRestored) {
+    const Model = DOCUMENT_MODELS[archive.documentType];
+    if (!Model) {
+      const err = new Error(`Unknown document type: ${archive.documentType}`);
+      err.statusCode = 400;
+      throw err;
+    }
+    await Model.deleteOne({ _id: archive.originalId });
+  }
+
+  await Archive.deleteOne({ _id: archiveId });
+  return { archive };
+}
+
 module.exports = {
   archiveDocument,
   restoreArchive,
+  permanentDeleteArchive,
   DOCUMENT_MODELS
 };

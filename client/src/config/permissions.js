@@ -47,10 +47,10 @@ export const PERMISSIONS = {
 
   // Purchasing permissions
   PURCHASING_PERMISSIONS: {
-    canCreateOrder: ['admin', 'employee'], // Admin and employees can create orders
+    canCreateOrder: ['admin', 'employee','manager'], // Admin and employees can create orders
     canEditOrder: ['admin', 'manager'], // Admin and managers can edit orders
     canAcceptOrder: ['admin', 'manager'], // Only admin and managers can accept/approve orders
-    canReceiveOrder: ['admin', 'employee'], // Admin and employees can receive orders
+    canReceiveOrder: ['admin', 'employee','manager'], // Admin and employees can receive orders
     canViewAllOrders: ['admin', 'manager', 'employee'], // All roles can view orders
     canDeleteOrder: ['admin', 'manager'] // Only admin and managers can delete orders
   },
@@ -58,8 +58,8 @@ export const PERMISSIONS = {
   // Employee management permissions
   EMPLOYEE_MANAGEMENT_PERMISSIONS: {
     canAddEmployee: ['admin', 'manager', 'employee'], // Admin, managers, and employees can add employees (except HR employees)
-    canEditEmployee: ['admin', 'manager', 'employee'], // Admin, managers, and employees can edit employees (except HR employees)
-    canDeleteEmployee: ['admin', 'manager', 'employee'] // Admin, managers, and employees can delete employees (except HR employees)
+    canEditEmployee: ['admin', 'manager'], // Admin, managers, and employees can edit employees (except HR employees)
+    canDeleteEmployee: ['admin', 'manager'] // Admin, managers, and employees can delete employees (except HR employees)
   },
 
   // Role-based permissions
@@ -169,8 +169,8 @@ export const canManageFinanceBankAccounts = (user) => {
   return user.role === 'manager' && user.department === 'Finance';
 };
 
-/** HR Recruitment (applicants): admin or HR department manager only */
-export const canAccessRecruitment = (user) => {
+/** HR Payroll: admin or HR department manager only */
+export const canAccessPayroll = (user) => {
   if (!user) return false;
   if (user.role === 'admin') return true;
   return user.role === 'manager' && user.department === 'HR';

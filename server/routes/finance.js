@@ -7,6 +7,8 @@ const Transaction = require('../models/Transaction');
 const Expense = require('../models/Expense');
 const Invoice = require('../models/Invoice');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
+const PayrollRecord = require('../models/PayrollRecord');
+const { recordPayrollExpense } = require('../services/payrollFinanceService');
 
 const router = express.Router();
 
@@ -251,6 +253,147 @@ router.post('/pay-invoice', [
     });
   }
 });
+
+/**
+ * @route   GET /api/finance/payroll/unpaid
+ * @desc    List payroll records awaiting payment from Finance
+ * @access  Private (Manager, Admin)
+ */
+router.get('/payroll/unpaid', protect, authorize('admin', 'manager'), async (req, res) => {
+  try {
+    const rows = await PayrollRecord.find({
+      status: 'approved',
+      financeExpense: null
+    })
+      .populate({
+        path: 'employee',
+        select: 'employeeId user',
+        populate: { path: 'user', select: 'name email' }
+      })
+      .sort({ periodYear: -1, periodMonth: -1, createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Get unpaid payroll error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/finance/payroll/:id/pay
+ * @desc    Pay an approved payroll record from a Finance bank account
+ * @access  Private (Manager, Admin)
+ */
+router.post(
+  '/payroll/:id/pay',
+  [
+    protect,
+    authorize('admin', 'manager'),
+    body('bankAccountId').isMongoId().withMessage('Valid bank account ID is required'),
+    body('paymentDate').optional().isISO8601().withMessage('Valid payment date is required'),
+    body('notes').optional().isString()
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation errors',
+          errors: errors.array()
+        });
+      }
+
+      const payroll = await PayrollRecord.findById(req.params.id).populate({
+        path: 'employee',
+        select: 'employeeId user',
+        populate: { path: 'user', select: 'name email' }
+      });
+
+      if (!payroll) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payroll record not found'
+        });
+      }
+
+      if (payroll.financeExpense) {
+        return res.status(400).json({
+          success: false,
+          message: 'This payroll record was already paid from Finance.'
+        });
+      }
+
+      if (payroll.status !== 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only approved payroll records can be paid from Finance.'
+        });
+      }
+
+      if ((payroll.netPay || 0) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Net pay must be greater than 0.'
+        });
+      }
+
+      const paymentDate = req.body.paymentDate ? new Date(req.body.paymentDate) : new Date();
+      const employeeName = payroll.employee?.user?.name || payroll.employee?.employeeId || 'Employee';
+
+      const { expense, transaction } = await recordPayrollExpense({
+        netPay: payroll.netPay,
+        payrollRecordId: payroll._id,
+        employeeDisplayName: employeeName,
+        periodYear: payroll.periodYear,
+        periodMonth: payroll.periodMonth,
+        bankAccountId: req.body.bankAccountId,
+        paymentDate,
+        notes: req.body.notes || payroll.notes
+      });
+
+      payroll.status = 'paid';
+      payroll.paymentDate = paymentDate;
+      if (req.body.notes !== undefined) {
+        payroll.notes = req.body.notes ? String(req.body.notes).trim() : '';
+      }
+      payroll.financeExpense = expense._id;
+      payroll.financeTransaction = transaction._id;
+      await payroll.save();
+
+      const updated = await PayrollRecord.findById(payroll._id)
+        .populate({
+          path: 'employee',
+          select: 'employeeId user',
+          populate: { path: 'user', select: 'name email' }
+        })
+        .populate({
+          path: 'financeExpense',
+          select: 'title amount category bankAccount',
+          populate: { path: 'bankAccount', select: 'name' }
+        });
+
+      res.json({
+        success: true,
+        data: updated
+      });
+    } catch (error) {
+      console.error('Pay payroll from finance error:', error);
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Server error'
+      });
+    }
+  }
+);
 
 /**
  * @route   GET /api/finance/transactions

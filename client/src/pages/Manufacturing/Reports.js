@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
 import { 
   Factory, 
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 const ManufacturingReports = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -38,7 +40,7 @@ const ManufacturingReports = () => {
       const response = await axios.get(`/api/reports/generate/manufacturing?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
       setReports(response.data.data);
     } catch (error) {
-      toast.error('Failed to fetch manufacturing report');
+      toast.error(t('manufacturing.reports.errors.fetchFailed'));
       console.error('Report fetch error:', error);
     } finally {
       setLoading(false);
@@ -67,9 +69,9 @@ const ManufacturingReports = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('Manufacturing report exported successfully');
+      toast.success(t('manufacturing.reports.messages.exportSuccess'));
     } catch (error) {
-      toast.error('Failed to export manufacturing report');
+      toast.error(t('manufacturing.reports.errors.exportFailed'));
     }
   };
 
@@ -93,13 +95,13 @@ const ManufacturingReports = () => {
       });
 
       if (response.data.success) {
-        toast.success(response.data.message || 'Report sent successfully');
+        toast.success(response.data.message || t('manufacturing.reports.messages.sendSuccess'));
       } else {
-        toast.error(response.data.message || 'Failed to send report');
+        toast.error(response.data.message || t('manufacturing.reports.errors.sendFailed'));
       }
     } catch (error) {
       console.error('Send report error:', error);
-      toast.error('Failed to send report');
+      toast.error(t('manufacturing.reports.errors.sendFailed'));
     } finally {
       setSendLoading(false);
     }
@@ -139,9 +141,9 @@ const ManufacturingReports = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manufacturing Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('manufacturing.reports.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Production analytics and efficiency insights
+            {t('manufacturing.reports.description')}
           </p>
         </div>
         <div className="flex space-x-3">
@@ -150,7 +152,7 @@ const ManufacturingReports = () => {
             className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            {t('manufacturing.reports.refresh')}
           </button>
           <button
             onClick={sendReport}
@@ -158,14 +160,14 @@ const ManufacturingReports = () => {
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
           >
             <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? 'Sending...' : 'Send Report'}
+            {sendLoading ? t('manufacturing.reports.sending') : t('manufacturing.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            {t('manufacturing.reports.exportReport')}
           </button>
         </div>
       </div>
@@ -176,7 +178,7 @@ const ManufacturingReports = () => {
           <Filter className="h-5 w-5 text-gray-400 dark:text-gray-500" />
           <div className="flex space-x-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('manufacturing.reports.startDate')}</label>
               <input
                 type="date"
                 value={dateRange.startDate}
@@ -185,7 +187,7 @@ const ManufacturingReports = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('manufacturing.reports.endDate')}</label>
               <input
                 type="date"
                 value={dateRange.endDate}
@@ -200,32 +202,32 @@ const ManufacturingReports = () => {
       {/* Key Metrics */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Orders"
+          title={t('manufacturing.reports.totalOrders')}
           value={reports.summary?.totalOrders || '0'}
           icon={Factory}
           color="text-blue-600"
-          subtitle="All production orders"
+          subtitle={t('manufacturing.reports.allProductionOrders')}
         />
         <StatCard
-          title="Completed Orders"
+          title={t('manufacturing.reports.completedOrders')}
           value={reports.summary?.completedOrders || '0'}
           icon={CheckCircle}
           color="text-green-600"
-          subtitle="Finished successfully"
+          subtitle={t('manufacturing.reports.finishedSuccessfully')}
         />
         <StatCard
-          title="Total Quantity"
+          title={t('manufacturing.reports.totalQuantity')}
           value={reports.summary?.totalQuantity || '0'}
           icon={Package}
           color="text-purple-600"
-          subtitle="Units produced"
+          subtitle={t('manufacturing.reports.unitsProduced')}
         />
         <StatCard
-          title="Avg Production Time"
+          title={t('manufacturing.reports.avgProductionTime')}
           value={`${reports.summary?.averageProductionTime?.toFixed(1) || '0'} hrs`}
           icon={Clock}
           color="text-orange-600"
-          subtitle="Per order"
+          subtitle={t('manufacturing.reports.perOrder')}
         />
       </div>
 
@@ -233,7 +235,7 @@ const ManufacturingReports = () => {
       {reports.statusDistribution && (
         <Card>
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-            Order Status Distribution
+            {t('manufacturing.reports.orderStatusDistribution')}
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Object.entries(reports.statusDistribution).map(([status, count]) => (
@@ -248,7 +250,9 @@ const ManufacturingReports = () => {
                     }`}></div>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{status}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                      {t(`manufacturing.reports.status.${status}`, { defaultValue: status })}
+                    </p>
                     <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">{count}</p>
                   </div>
                 </div>
@@ -263,18 +267,18 @@ const ManufacturingReports = () => {
         <Card padding={false} className="overflow-hidden">
           <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-              Top Performing Employees
+              {t('manufacturing.reports.topPerformingEmployees')}
             </h3>
           </div>
           <div className="overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
               <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Employee ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Position</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Orders Completed</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Hours</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Avg Hours/Order</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.employeeId')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.position')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.ordersCompleted')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.totalHours')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.avgHoursPerOrder')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -298,17 +302,17 @@ const ManufacturingReports = () => {
         <Card padding={false} className="overflow-hidden">
           <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-              Most Used Materials
+              {t('manufacturing.reports.mostUsedMaterials')}
             </h3>
           </div>
           <div className="overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
               <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Material</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Quantity</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Cost</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.material')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('inventory.dashboard.sku')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.totalQuantity')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('manufacturing.reports.totalCost')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">

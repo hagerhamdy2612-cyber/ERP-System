@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getUserAllowedModules, MODULE_NAMES, canShowAttendanceInModule, canAccessDashboardRoute, canManageFinanceBankAccounts, canAccessRecruitment } from '../config/permissions';
+import { getUserAllowedModules, MODULE_NAMES, canShowAttendanceInModule, canAccessDashboardRoute, canManageFinanceBankAccounts, canAccessPayroll } from '../config/permissions';
 import LanguageSwitcher from './LanguageSwitcher';
 import { translateNavigationItem } from '../utils/translateNavigation';
 import {
@@ -32,6 +32,7 @@ import {
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ const Layout = () => {
         { name: 'Attendance', href: '/app/hr/attendance' },
         { name: 'Attendance Report', href: '/app/hr/attendance-report' },
         { name: 'Reports', href: '/app/hr/reports' },
-        { name: 'Recruitment', href: '/app/hr/recruitment/applicants' }
+        { name: 'Payroll', href: '/app/hr/payroll' }
       ]
     },
     { 
@@ -134,10 +135,8 @@ const Layout = () => {
       module: 'inventory',
       children: [
         { name: 'Dashboard', href: '/app/inventory/dashboard' },
-        { name: 'All Products', href: '/app/inventory/products' },
         { name: 'Raw Materials', href: '/app/inventory/raw-materials' },
         { name: 'Final Products', href: '/app/inventory/finished-products' },
-        { name: 'Others', href: '/app/inventory/others' },
         { name: 'Reports', href: '/app/inventory/reports' },
         { name: 'Attendance', href: '/app/inventory/attendance' }
       ]
@@ -189,7 +188,7 @@ const Layout = () => {
         if (child.financeBankAccess && !canManageFinanceBankAccounts(user)) {
           return false;
         }
-        if (child.href?.includes('/hr/recruitment') && !canAccessRecruitment(user)) {
+        if (child.href?.includes('/hr/payroll') && !canAccessPayroll(user)) {
           return false;
         }
         return true;
@@ -252,8 +251,8 @@ const Layout = () => {
                 <span className="text-white font-bold text-sm">M</span>
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">MTI-ERP</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Enterprise Resource Planning</p>
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('common.brandName')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('common.erpSubtitle')}</p>
               </div>
             </div>
           </div>
@@ -265,7 +264,7 @@ const Layout = () => {
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 hover:scale-105"
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? t('common.switchToLight') : t('common.switchToDark')}
             >
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
@@ -287,7 +286,7 @@ const Layout = () => {
               className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
+              <span className="hidden sm:inline">{t('common.logout')}</span>
             </button>
           </div>
         </div>

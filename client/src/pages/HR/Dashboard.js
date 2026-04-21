@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/Card';
 import {
@@ -17,6 +18,7 @@ import {
 } from 'recharts';
 
 const HRDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [kpis, setKpis] = useState(null);
   const [departmentChartData, setDepartmentChartData] = useState([]);
@@ -94,9 +96,9 @@ const HRDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">HR Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('hr.dashboard.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Overview of your human resources and workforce analytics
+          {t('hr.dashboard.description')}
         </p>
       </div>
 
@@ -113,7 +115,7 @@ const HRDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Employees
+                    {t('hr.dashboard.totalEmployees')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalEmployees || 0}
@@ -135,7 +137,7 @@ const HRDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Today's Attendance
+                    {t('hr.dashboard.todayAttendance')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.todayAttendance || 0}
@@ -157,7 +159,7 @@ const HRDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Attendance Rate
+                    {t('hr.dashboard.attendanceRate')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalEmployees > 0 
@@ -176,7 +178,7 @@ const HRDashboard = () => {
         <Card padding={false} className="overflow-hidden">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
             <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-              Department Distribution
+              {t('hr.dashboard.departmentDistribution')}
             </h3>
           </div>
           <div className="px-4 py-5 sm:p-6">
@@ -198,7 +200,7 @@ const HRDashboard = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value) => [`${value} employees`, 'Count']}
+                    formatter={(value) => [t('hr.dashboard.tooltipEmployees', { count: value }), t('hr.dashboard.tooltipCount')]}
                     contentStyle={{
                       backgroundColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
                       border: `1px solid ${document.documentElement.classList.contains('dark') ? '#334155' : '#e5e7eb'}`,

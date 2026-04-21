@@ -73,8 +73,8 @@ const CRMComplaints = () => {
       if (!submitData.relatedOrder || submitData.relatedOrder === '') {
         delete submitData.relatedOrder;
       }
-
       if (editingComplaint) {
+        delete submitData.customer;
         await axios.put(`/api/crm/complaints/${editingComplaint._id}`, submitData);
         toast.success(t('messages.updateSuccess'));
       } else {
@@ -203,9 +203,9 @@ const CRMComplaints = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Complaints</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('crm.complaints.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage customer complaints and support tickets
+            {t('crm.complaints.description')}
           </p>
         </div>
         <button
@@ -225,7 +225,7 @@ const CRMComplaints = () => {
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Complaint
+          {t('crm.complaints.addComplaint')}
         </button>
       </div>
 
@@ -233,47 +233,47 @@ const CRMComplaints = () => {
       <Card paddingSize="sm">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common.status')}</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
             >
-              <option value="">All Statuses</option>
-              <option value="open">Open</option>
-              <option value="in-progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="">{t('crm.complaints.allStatuses')}</option>
+              <option value="open">{t('crm.complaints.status.open')}</option>
+              <option value="in-progress">{t('crm.complaints.status.in-progress')}</option>
+              <option value="resolved">{t('crm.complaints.status.resolved')}</option>
+              <option value="closed">{t('crm.complaints.status.closed')}</option>
+              <option value="cancelled">{t('crm.complaints.status.cancelled')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common.priority')}</label>
             <select
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
               className="block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
             >
-              <option value="">All Priorities</option>
-              <option value="urgent">Urgent</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="">{t('crm.complaints.allPriorities')}</option>
+              <option value="urgent">{t('crm.complaints.priority.urgent')}</option>
+              <option value="high">{t('crm.complaints.priority.high')}</option>
+              <option value="medium">{t('crm.complaints.priority.medium')}</option>
+              <option value="low">{t('crm.complaints.priority.low')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common.category')}</label>
             <select
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
               className="block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
             >
-              <option value="">All Categories</option>
-              <option value="product-quality">Product Quality</option>
-              <option value="delivery">Delivery</option>
-              <option value="billing">Billing</option>
-              <option value="service">Service</option>
-              <option value="other">Other</option>
+              <option value="">{t('crm.complaints.allCategories')}</option>
+              <option value="product-quality">{t('crm.complaints.category.product-quality')}</option>
+              <option value="delivery">{t('crm.complaints.category.delivery')}</option>
+              <option value="billing">{t('crm.complaints.category.billing')}</option>
+              <option value="service">{t('crm.complaints.category.service')}</option>
+              <option value="other">{t('crm.complaints.category.other')}</option>
             </select>
           </div>
         </div>
@@ -284,7 +284,7 @@ const CRMComplaints = () => {
         {complaints.length === 0 ? (
           <div className="text-center py-12">
             <AlertCircle className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">No complaints found</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('crm.complaints.noComplaints')}</p>
           </div>
         ) : (
           <ul className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -301,7 +301,7 @@ const CRMComplaints = () => {
                     <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-1" />
-                        <span>{complaint.customer?.name || 'Unknown Customer'}</span>
+                        <span>{complaint.customer?.name || t('sales.orders.unknownCustomer')}</span>
                       </div>
                       {complaint.customer?.email && (
                         <div className="flex items-center">
@@ -331,21 +331,21 @@ const CRMComplaints = () => {
                     <button
                       onClick={() => handleViewDetails(complaint)}
                       className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors"
-                      title="View Details"
+                      title={t('common.viewDetails')}
                     >
                       <FileText className="h-5 w-5" />
                     </button>
                     <button
                       onClick={() => handleEdit(complaint)}
                       className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 transition-colors"
-                      title="Edit"
+                      title={t('common.edit')}
                     >
                       <Edit className="h-5 w-5" />
                     </button>
                     <button
                       onClick={() => handleDelete(complaint._id)}
                       className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors"
-                      title="Delete"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -363,7 +363,7 @@ const CRMComplaints = () => {
           <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-full max-w-2xl shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                {editingComplaint ? 'Edit Complaint' : 'Add Complaint'}
+                {editingComplaint ? t('crm.complaints.editComplaint') : t('crm.complaints.addComplaint')}
               </h3>
               <button
                 onClick={() => {
@@ -382,11 +382,12 @@ const CRMComplaints = () => {
                 </label>
                 <select
                   required
+                  disabled={!!editingComplaint}
                   value={formData.customer}
                   onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-slate-800/80"
                 >
-                  <option value="">Select a customer</option>
+                  <option value="">{t('crm.complaints.selectCustomer')}</option>
                   {customers.map((customer) => (
                     <option key={customer._id} value={customer._id}>
                       {customer.name} {customer.company ? `- ${customer.company}` : ''}
@@ -404,7 +405,7 @@ const CRMComplaints = () => {
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  placeholder="Enter complaint subject"
+                  placeholder={t('crm.complaints.subjectPlaceholder')}
                 />
               </div>
               <div>
@@ -417,7 +418,7 @@ const CRMComplaints = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={4}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  placeholder="Enter complaint description"
+                  placeholder={t('crm.complaints.descriptionPlaceholder')}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -430,11 +431,11 @@ const CRMComplaints = () => {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   >
-                    <option value="product-quality">Product Quality</option>
-                    <option value="delivery">Delivery</option>
-                    <option value="billing">Billing</option>
-                    <option value="service">Service</option>
-                    <option value="other">Other</option>
+                    <option value="product-quality">{t('crm.complaints.category.product-quality')}</option>
+                    <option value="delivery">{t('crm.complaints.category.delivery')}</option>
+                    <option value="billing">{t('crm.complaints.category.billing')}</option>
+                    <option value="service">{t('crm.complaints.category.service')}</option>
+                    <option value="other">{t('crm.complaints.category.other')}</option>
                   </select>
                 </div>
                 <div>
@@ -446,10 +447,10 @@ const CRMComplaints = () => {
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                     className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                    <option value="low">{t('crm.complaints.priority.low')}</option>
+                    <option value="medium">{t('crm.complaints.priority.medium')}</option>
+                    <option value="high">{t('crm.complaints.priority.high')}</option>
+                    <option value="urgent">{t('crm.complaints.priority.urgent')}</option>
                   </select>
                 </div>
               </div>
@@ -463,11 +464,11 @@ const CRMComplaints = () => {
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                     className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   >
-                    <option value="open">Open</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="open">{t('crm.complaints.status.open')}</option>
+                    <option value="in-progress">{t('crm.complaints.status.in-progress')}</option>
+                    <option value="resolved">{t('crm.complaints.status.resolved')}</option>
+                    <option value="closed">{t('crm.complaints.status.closed')}</option>
+                    <option value="cancelled">{t('crm.complaints.status.cancelled')}</option>
                   </select>
                 </div>
               )}
@@ -480,13 +481,13 @@ const CRMComplaints = () => {
                   }}
                   className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
                 >
-                  {editingComplaint ? 'Update' : 'Create'}
+                  {editingComplaint ? t('common.update') : t('common.create')}
                 </button>
               </div>
             </form>
@@ -534,25 +535,25 @@ const CRMComplaints = () => {
 
               {/* Customer Info */}
               <Card paddingSize="sm">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Customer Information</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('crm.complaints.customerInformation')}</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Name:</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('common.name')}:</span>
                     <span className="ml-2 text-gray-900 dark:text-white">{selectedComplaint.customer?.name}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Email:</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('common.email')}:</span>
                     <span className="ml-2 text-gray-900 dark:text-white">{selectedComplaint.customer?.email}</span>
                   </div>
                   {selectedComplaint.customer?.phone && (
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Phone:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('common.phone')}:</span>
                       <span className="ml-2 text-gray-900 dark:text-white">{selectedComplaint.customer.phone}</span>
                     </div>
                   )}
                   {selectedComplaint.customer?.company && (
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Company:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('crm.customers.company')}:</span>
                       <span className="ml-2 text-gray-900 dark:text-white">{selectedComplaint.customer.company}</span>
                     </div>
                   )}
@@ -561,14 +562,14 @@ const CRMComplaints = () => {
 
               {/* Description */}
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Description</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('common.description')}</h4>
                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedComplaint.description}</p>
               </div>
 
               {/* Resolution */}
               {selectedComplaint.resolution && (
                 <Card paddingSize="sm" className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Resolution</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('crm.complaints.resolution')}</h4>
                   <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedComplaint.resolution}</p>
                   {selectedComplaint.resolvedAt && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -581,7 +582,7 @@ const CRMComplaints = () => {
               {/* Notes */}
               {selectedComplaint.notes && selectedComplaint.notes.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Notes</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('common.notes')}</h4>
                   <div className="space-y-2">
                     {selectedComplaint.notes.map((note, idx) => (
                       <Card key={idx} paddingSize="sm">

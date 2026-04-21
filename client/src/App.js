@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedModuleRoute from './components/ProtectedModuleRoute';
-import ProtectedRecruitmentRoute from './components/ProtectedRecruitmentRoute';
+import ProtectedPayrollRoute from './components/ProtectedPayrollRoute';
 import ProtectedDashboardRoute from './components/ProtectedDashboardRoute';
 import { canShowAttendanceInModule } from './config/permissions';
 import Layout from './components/Layout';
@@ -16,9 +16,8 @@ import HREmployees from './pages/HR/Employees';
 import HRAttendance from './pages/HR/Attendance';
 import HRAttendanceReport from './pages/HR/AttendanceReport';
 import HRReports from './pages/HR/Reports';
-import HRRecruitmentApplicants from './pages/HR/Recruitment/ApplicantsList';
-import HRRecruitmentAddApplicant from './pages/HR/Recruitment/AddApplicant';
-import HRRecruitmentApplicantDetail from './pages/HR/Recruitment/ApplicantDetail';
+import HRPayrollList from './pages/HR/Payroll/PayrollList';
+import HRPayrollRecordPage from './pages/HR/Payroll/PayrollRecordPage';
 import ManufacturingDashboard from './pages/Manufacturing/Dashboard';
 import ManufacturingOrders from './pages/Manufacturing/Orders';
 import ManufacturingReports from './pages/Manufacturing/Reports';
@@ -33,10 +32,8 @@ import SalesDashboard from './pages/Sales/Dashboard';
 import SalesOrders from './pages/Sales/Orders';
 import SalesReports from './pages/Sales/Reports';
 import InventoryDashboard from './pages/Inventory/Dashboard';
-import InventoryProducts from './pages/Inventory/Products';
 import RawMaterials from './pages/Inventory/RawMaterials';
 import FinishedProducts from './pages/Inventory/FinishedProducts';
-import Others from './pages/Inventory/Others';
 import InventoryReports from './pages/Inventory/Reports';
 import PurchasingDashboard from './pages/Purchasing/Dashboard';
 import PurchasingOrders from './pages/Purchasing/Orders';
@@ -79,7 +76,7 @@ const ConditionalAttendanceRoute = ({ module, children }) => {
       'HR': '/app/hr/employees',
       'Sales': '/app/sales/orders',
       'Purchasing': '/app/purchasing/orders',
-      'Inventory': '/app/inventory/products',
+      'Inventory': '/app/inventory/raw-materials',
       'Manufacturing': '/app/manufacturing/orders',
       'CRM': '/app/crm/customers',
       'SCM': '/app/scm/suppliers',
@@ -119,7 +116,7 @@ const DashboardRedirect = () => {
     'HR': '/app/hr/employees',
     'Sales': '/app/sales/orders',
     'Purchasing': '/app/purchasing/orders',
-    'Inventory': '/app/inventory/products',
+    'Inventory': '/app/inventory/raw-materials',
     'Manufacturing': '/app/manufacturing/orders',
     'CRM': '/app/crm/customers',
     'SCM': '/app/scm/suppliers',
@@ -183,20 +180,20 @@ function App() {
                   <HRReports />
                 </ProtectedModuleRoute>
               } />
-              <Route path="hr/recruitment/applicants/new" element={
-                <ProtectedRecruitmentRoute>
-                  <HRRecruitmentAddApplicant />
-                </ProtectedRecruitmentRoute>
+              <Route path="hr/payroll/new" element={
+                <ProtectedPayrollRoute>
+                  <HRPayrollRecordPage />
+                </ProtectedPayrollRoute>
               } />
-              <Route path="hr/recruitment/applicants/:id" element={
-                <ProtectedRecruitmentRoute>
-                  <HRRecruitmentApplicantDetail />
-                </ProtectedRecruitmentRoute>
+              <Route path="hr/payroll/:id" element={
+                <ProtectedPayrollRoute>
+                  <HRPayrollRecordPage />
+                </ProtectedPayrollRoute>
               } />
-              <Route path="hr/recruitment/applicants" element={
-                <ProtectedRecruitmentRoute>
-                  <HRRecruitmentApplicants />
-                </ProtectedRecruitmentRoute>
+              <Route path="hr/payroll" element={
+                <ProtectedPayrollRoute>
+                  <HRPayrollList />
+                </ProtectedPayrollRoute>
               } />
               
               {/* Manufacturing Routes - Only for Manufacturing department and admins */}
@@ -306,11 +303,8 @@ function App() {
                   <InventoryDashboard />
                 </ProtectedDashboardRoute>
               } />
-              <Route path="inventory/products" element={
-                <ProtectedModuleRoute module="inventory">
-                  <InventoryProducts />
-                </ProtectedModuleRoute>
-              } />
+              <Route path="inventory/products" element={<Navigate to="/app/inventory/raw-materials" replace />} />
+              <Route path="inventory/others" element={<Navigate to="/app/inventory/raw-materials" replace />} />
               <Route path="inventory/raw-materials" element={
                 <ProtectedModuleRoute module="inventory">
                   <RawMaterials />
@@ -319,11 +313,6 @@ function App() {
               <Route path="inventory/finished-products" element={
                 <ProtectedModuleRoute module="inventory">
                   <FinishedProducts />
-                </ProtectedModuleRoute>
-              } />
-              <Route path="inventory/others" element={
-                <ProtectedModuleRoute module="inventory">
-                  <Others />
                 </ProtectedModuleRoute>
               } />
               <Route path="inventory/attendance" element={

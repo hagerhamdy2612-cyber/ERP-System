@@ -1,6 +1,101 @@
 const cron = require('node-cron');
 const Product = require('../models/Product');
 const PurchaseOrder = require('../models/PurchaseOrder');
+const PurchaseInvoice = require('../models/PurchaseInvoice');
+const { lowStockRawMaterialMongoFilter } = require('../utils/autoPurchaseLowStock');
+
+/**
+ * Next PO#### using numeric max (safe with deleted/history gaps).
+ */
+async function getNextPurchaseOrderNumber() {
+  const orders = await PurchaseOrder.find({ orderNumber: { $regex: /^PO\d+$/i } })
+    .select('orderNumber')
+    .setOptions({ includeDeleted: true })
+    .lean();
+  let max = 0;
+  for (const o of orders) {
+    const n = parseInt(String(o.orderNumber).replace(/^PO/i, ''), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return `PO${String(max + 1).padStart(4, '0')}`;
+}
+
+/**
+ * Create purchase order and retry on duplicate PO number collisions.
+ */
+async function createPurchaseOrderWithUniqueNumber(payload, maxAttempts = 5) {
+  let lastError;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    try {
+      const orderNumber = await getNextPurchaseOrderNumber();
+      return await PurchaseOrder.create({ ...payload, orderNumber });
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== 11000) throw error;
+    }
+  }
+  throw lastError || new Error('Failed to generate unique purchase order number');
+}
+
+async function getNextPurchaseInvoiceNumber() {
+  const invoices = await PurchaseInvoice.find({ invoiceNumber: { $regex: /^PINV\d+$/i } })
+    .select('invoiceNumber')
+    .lean();
+  let max = 0;
+  for (const inv of invoices) {
+    const n = parseInt(String(inv.invoiceNumber).replace(/^PINV/i, ''), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return `PINV${String(max + 1).padStart(4, '0')}`;
+}
+
+async function createPurchaseInvoiceWithUniqueNumber(payload, maxAttempts = 5) {
+  let lastError;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    try {
+      const invoiceNumber = await getNextPurchaseInvoiceNumber();
+      return await PurchaseInvoice.create({ ...payload, invoiceNumber });
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== 11000) throw error;
+    }
+  }
+  throw lastError || new Error('Failed to generate unique purchase invoice number');
+}
+
+async function ensureInvoiceForPurchaseOrder(purchaseOrder) {
+  const existingInvoice = await PurchaseInvoice.findOne({ purchaseOrder: purchaseOrder._id });
+  if (existingInvoice) return existingInvoice;
+
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 30);
+
+  const invoiceItems = await Promise.all(
+    (purchaseOrder.items || []).map(async (item) => {
+      const product = await Product.findById(item.product).select('name');
+      return {
+        product: item.product,
+        productName: product?.name || 'Unknown Product',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.total
+      };
+    })
+  );
+
+  return createPurchaseInvoiceWithUniqueNumber({
+    purchaseOrder: purchaseOrder._id,
+    supplier: purchaseOrder.supplier,
+    items: invoiceItems,
+    subtotal: purchaseOrder.subtotal,
+    tax: purchaseOrder.tax,
+    total: purchaseOrder.total,
+    dueDate,
+    paymentTerms: 'Net 30',
+    status: 'sent',
+    notes: purchaseOrder.notes || ''
+  });
+}
 
 class SchedulerService {
   constructor() {
@@ -62,21 +157,22 @@ class SchedulerService {
   // Generate automatic purchase orders from low stock
   async generateAutoPurchaseOrders() {
     try {
-      // Find ALL products with low stock (any category), matching manual auto-generate
-      const lowStockProducts = await Product.find({
-        $expr: { $lte: ['$currentStock', '$minStockLevel'] },
-        isActive: true,
-        supplier: { $exists: true, $ne: null }
-      })
-      .populate('supplier', 'name contactPerson email');
+      const lowStockProducts = await Product.find(lowStockRawMaterialMongoFilter()).populate(
+        'supplier',
+        'name contactPerson email'
+      );
 
-      console.log(`Auto-purchase: found ${lowStockProducts.length} low-stock product(s) with supplier`);
+      console.log(
+        `Auto-purchase: found ${lowStockProducts.length} low-stock raw material(s) in catalog (out of stock or stock <= min when min > 0); POs are created only where a supplier is assigned.`
+      );
 
       const createdOrders = [];
 
       for (const product of lowStockProducts) {
         if (!product.supplier) {
-          console.log(`Auto-purchase: skipping ${product.name} - no supplier`);
+          console.log(
+            `Auto-purchase: skipping "${product.name}" (${product.sku || 'no SKU'}) — assign a supplier on this raw material in Inventory to auto-create purchase orders.`
+          );
           continue;
         }
 
@@ -101,18 +197,13 @@ class SchedulerService {
           continue;
         }
         
-        // Generate order number
-        const orderCount = await PurchaseOrder.countDocuments();
-        const orderNumber = `PO${String(orderCount + createdOrders.length + 1).padStart(4, '0')}`;
-
         // Calculate totals
         const total = quantity * unitPrice;
         const subtotal = total;
         const tax = subtotal * 0.1; // 10% tax
         const totalWithTax = subtotal + tax;
 
-        const purchaseOrder = await PurchaseOrder.create({
-          orderNumber,
+        const purchaseOrder = await createPurchaseOrderWithUniqueNumber({
           supplier: product.supplier._id,
           items: [{
             product: product._id,
@@ -128,18 +219,19 @@ class SchedulerService {
           source: 'inventory',
           notes: `Auto-generated from inventory: Current stock ${product.currentStock}, Min level ${product.minStockLevel}`
         });
+        await ensureInvoiceForPurchaseOrder(purchaseOrder);
 
         await purchaseOrder.populate('supplier', 'name contactPerson email');
         await purchaseOrder.populate('items.product', 'name sku unitCost');
 
         createdOrders.push(purchaseOrder);
-        console.log(`Created auto PO ${orderNumber} for ${product.name}`);
+        console.log(`Created auto PO ${purchaseOrder.orderNumber} for ${product.name}`);
       }
 
       if (createdOrders.length > 0) {
         console.log(`Auto-purchase: created ${createdOrders.length} purchase order(s)`);
       } else if (lowStockProducts.length === 0) {
-        console.log('Auto-purchase: no low-stock products (currentStock <= minStockLevel) with supplier');
+        console.log('Auto-purchase: no raw materials need replenishment (see low-stock rules in autoPurchaseLowStock.js)');
       } else {
         console.log('Auto-purchase: no new POs created (all low-stock products already have a pending auto PO)');
       }

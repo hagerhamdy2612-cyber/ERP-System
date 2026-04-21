@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
 import { 
   Users, 
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 const HRReports = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -39,7 +41,7 @@ const HRReports = () => {
       const response = await axios.get(`/api/reports/generate/hr?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
       setReports(response.data.data);
     } catch (error) {
-      toast.error('Failed to fetch HR report');
+      toast.error(t('hr.reports.errors.fetchFailed'));
       console.error('Report fetch error:', error);
     } finally {
       setLoading(false);
@@ -68,9 +70,9 @@ const HRReports = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('HR report exported successfully');
+      toast.success(t('hr.reports.messages.exportSuccess'));
     } catch (error) {
-      toast.error('Failed to export HR report');
+      toast.error(t('hr.reports.errors.exportFailed'));
     }
   };
 
@@ -92,13 +94,13 @@ const HRReports = () => {
       });
 
       if (response.data.success) {
-        toast.success(response.data.message || 'Report sent successfully');
+        toast.success(response.data.message || t('hr.reports.messages.sendSuccess'));
       } else {
-        toast.error(response.data.message || 'Failed to send report');
+        toast.error(response.data.message || t('hr.reports.errors.sendFailed'));
       }
     } catch (error) {
       console.error('Send report error:', error);
-      toast.error('Failed to send report');
+      toast.error(t('hr.reports.errors.sendFailed'));
     } finally {
       setSendLoading(false);
     }
@@ -138,9 +140,9 @@ const HRReports = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">HR Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('hr.reports.title')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Employee analytics and workforce insights
+            {t('hr.reports.description')}
           </p>
         </div>
         <div className="flex space-x-3">
@@ -149,7 +151,7 @@ const HRReports = () => {
             className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-slate-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            {t('hr.reports.refresh')}
           </button>
           <button
             onClick={sendReport}
@@ -157,14 +159,14 @@ const HRReports = () => {
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
           >
             <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? 'Sending...' : 'Send Report'}
+            {sendLoading ? t('hr.reports.sending') : t('hr.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            {t('hr.reports.exportReport')}
           </button>
         </div>
       </div>
@@ -175,7 +177,7 @@ const HRReports = () => {
           <Filter className="h-5 w-5 text-gray-400 dark:text-gray-500" />
           <div className="flex space-x-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('hr.reports.startDate')}</label>
               <input
                 type="date"
                 value={dateRange.startDate}
@@ -184,7 +186,7 @@ const HRReports = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('hr.reports.endDate')}</label>
               <input
                 type="date"
                 value={dateRange.endDate}
@@ -199,32 +201,32 @@ const HRReports = () => {
       {/* Key Metrics */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Employees"
+          title={t('hr.reports.totalEmployees')}
           value={reports.summary?.totalEmployees || '0'}
           icon={Users}
           color="text-blue-600"
-          subtitle="All employees"
+          subtitle={t('hr.reports.allEmployees')}
         />
         <StatCard
-          title="Active Employees"
+          title={t('hr.reports.activeEmployees')}
           value={reports.summary?.activeEmployees || '0'}
           icon={UserCheck}
           color="text-green-600"
-          subtitle="Currently active"
+          subtitle={t('hr.reports.currentlyActive')}
         />
         <StatCard
-          title="New Hires"
+          title={t('hr.reports.newHires')}
           value={reports.summary?.newHires || '0'}
           icon={TrendingUp}
           color="text-purple-600"
-          subtitle="In period"
+          subtitle={t('hr.reports.inPeriod')}
         />
         <StatCard
-          title="Inactive Employees"
+          title={t('hr.reports.inactiveEmployees')}
           value={reports.summary?.inactiveEmployees || '0'}
           icon={Users}
           color="text-orange-600"
-          subtitle="Not active"
+          subtitle={t('hr.reports.notActive')}
         />
       </div>
 
@@ -232,7 +234,7 @@ const HRReports = () => {
       {reports.departmentDistribution && reports.departmentDistribution.length > 0 && (
         <Card>
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-            Department Distribution
+            {t('hr.reports.departmentDistribution')}
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {reports.departmentDistribution.map((dept, index) => (
@@ -254,23 +256,23 @@ const HRReports = () => {
       {reports.attendanceStats && (
         <Card>
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-            Attendance Statistics
+            {t('hr.reports.attendanceStatistics')}
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Present</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.present')}</p>
               <p className="text-2xl font-semibold text-green-900 dark:text-green-400">{reports.attendanceStats.present}</p>
             </div>
             <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Absent</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.absent')}</p>
               <p className="text-2xl font-semibold text-red-900 dark:text-red-400">{reports.attendanceStats.absent}</p>
             </div>
             <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Late</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.late')}</p>
               <p className="text-2xl font-semibold text-yellow-900 dark:text-yellow-400">{reports.attendanceStats.late}</p>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">On Leave</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.onLeave')}</p>
               <p className="text-2xl font-semibold text-blue-900 dark:text-blue-400">{reports.attendanceStats.onLeave}</p>
             </div>
           </div>
@@ -282,19 +284,19 @@ const HRReports = () => {
         <Card padding={false} className="overflow-hidden">
           <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-              Department Attendance Performance
+              {t('hr.reports.departmentAttendancePerformance')}
             </h3>
           </div>
           <div className="overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
               <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Present</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Absent</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Late</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Attendance Rate</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Hours</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.department')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.present')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.absent')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.late')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.attendanceRate')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.totalHours')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -319,16 +321,16 @@ const HRReports = () => {
         <Card padding={false} className="overflow-hidden">
           <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-              Average Salary by Department
+              {t('hr.reports.averageSalaryByDepartment')}
             </h3>
           </div>
           <div className="overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
               <thead className="bg-gray-50 dark:bg-slate-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Employees</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Average Salary</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.department')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.employees')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.averageSalary')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">

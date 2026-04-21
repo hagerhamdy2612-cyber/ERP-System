@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/Card';
 import {
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 
 const SCMDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [kpis, setKpis] = useState(null);
   const [recentSuppliers, setRecentSuppliers] = useState([]);
@@ -59,9 +61,9 @@ const SCMDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Supply Chain Management Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('scm.dashboard.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Overview of supplier management and supply chain operations
+          {t('scm.dashboard.description')}
         </p>
       </div>
 
@@ -78,7 +80,7 @@ const SCMDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Suppliers
+                    {t('scm.dashboard.totalSuppliers')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalSuppliers || 0}
@@ -100,7 +102,7 @@ const SCMDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Active Suppliers
+                    {t('scm.dashboard.activeSuppliers')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.activeSuppliers || 0}
@@ -122,7 +124,7 @@ const SCMDashboard = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Supplier Contact Rate
+                    {t('scm.dashboard.supplierContactRate')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
                     {kpis?.totalSuppliers > 0 
@@ -140,14 +142,14 @@ const SCMDashboard = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-            Recent Suppliers
+            {t('scm.dashboard.recentSuppliers')}
           </h3>
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-slate-700">
           {recentSuppliers.length === 0 ? (
             <li className="px-4 py-5 sm:px-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                No suppliers yet
+                {t('scm.dashboard.noSuppliers')}
               </p>
             </li>
           ) : (
@@ -179,13 +181,13 @@ const SCMDashboard = () => {
                           </>
                         )}
                         <Phone className="h-4 w-4 mr-1" />
-                        <span>{supplier.phone || 'No phone'}</span>
+                        <span>{supplier.phone || t('scm.dashboard.noPhone')}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${supplier.isActive !== false ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-400' : 'bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300'}`}>
-                      {supplier.isActive !== false ? 'Active' : 'Inactive'}
+                      {supplier.isActive !== false ? t('crm.dashboard.active') : t('crm.dashboard.inactive')}
                     </span>
                   </div>
                 </div>

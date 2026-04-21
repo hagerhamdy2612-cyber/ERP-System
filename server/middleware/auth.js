@@ -146,14 +146,80 @@ const authorizeReceivePurchaseOrder = (req, res, next) => {
   }
 };
 
-// Recruitment: administrators or HR department managers only (not HR employees)
-const authorizeHRRecruitment = (req, res, next) => {
-  if (req.user.role === 'admin' || (req.user.role === 'manager' && req.user.department === 'HR')) {
+// Grant access to create sales orders (admin or Sales department managers and employees)
+const authorizeCreateSalesOrder = (req, res, next) => {
+  if (req.user.role === 'admin') {
+    return next();
+  }
+  if (
+    req.user.department === 'Sales' &&
+    (req.user.role === 'manager' || req.user.role === 'employee')
+  ) {
     return next();
   }
   return res.status(403).json({
     success: false,
-    message: 'Access denied. Only administrators and HR managers can access recruitment.'
+    message:
+      'Access denied. Only administrators and users in the Sales department can create sales orders.'
+  });
+};
+
+// Confirm / ship / delete sales orders: admin; managers in any department except Purchasing;
+// Sales department employees only (other departments' employees are not included)
+const authorizeSalesOrderWorkflow = (req, res, next) => {
+  if (req.user.role === 'admin') {
+    return next();
+  }
+  if (req.user.department === 'Purchasing') {
+    return res.status(403).json({
+      success: false,
+      message:
+        'Access denied. Users in the Purchasing department cannot confirm, ship, or delete sales orders.'
+    });
+  }
+  if (req.user.role === 'manager') {
+    return next();
+  }
+  if (req.user.role === 'employee' && req.user.department === 'Sales') {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message:
+      'Access denied. Only administrators, managers outside Purchasing, and Sales employees can perform this action.'
+  });
+};
+
+/** Create / start / complete production orders: admin or Manufacturing department employees and managers */
+const authorizeManufacturingProduction = (req, res, next) => {
+  if (req.user.role === 'admin') {
+    return next();
+  }
+  if (
+    req.user.department === 'Manufacturing' &&
+    (req.user.role === 'manager' || req.user.role === 'employee')
+  ) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message:
+      'Access denied. Only administrators and Manufacturing department staff can perform this action.'
+  });
+};
+
+/** Assign workers / delete (archive) production orders: admin or Manufacturing managers only */
+const authorizeManufacturingManagers = (req, res, next) => {
+  if (req.user.role === 'admin') {
+    return next();
+  }
+  if (req.user.role === 'manager' && req.user.department === 'Manufacturing') {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message:
+      'Access denied. Only administrators and Manufacturing managers can perform this action.'
   });
 };
 
@@ -161,11 +227,14 @@ module.exports = {
   protect, 
   authorize, 
   authorizeAdminOrHR, 
-  authorizeHRRecruitment,
   authorizeEmployeeManagement,
   authorizeCreatePurchaseOrder,
   authorizeEditPurchaseOrder,
   authorizeAcceptPurchaseOrder,
   authorizeReceivePurchaseOrder,
-  authorizeDepartment
+  authorizeCreateSalesOrder,
+  authorizeSalesOrderWorkflow,
+  authorizeDepartment,
+  authorizeManufacturingProduction,
+  authorizeManufacturingManagers
 };

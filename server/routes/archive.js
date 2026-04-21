@@ -1,7 +1,7 @@
 const express = require('express');
 const { protect, authorize } = require('../middleware/auth');
 const Archive = require('../models/Archive');
-const { restoreArchive } = require('../services/archiveService');
+const { restoreArchive, permanentDeleteArchive } = require('../services/archiveService');
 const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
@@ -90,6 +90,47 @@ router.post('/:id/restore', protect, authorize('admin'), async (req, res) => {
       return res.status(400).json({ success: false, message: error.message });
     }
     console.error('Restore archive error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+/**
+ * DELETE /api/archive/:id/permanent
+ * Permanently delete archive entry; if not restored, hard-delete the original document. Admin only.
+ */
+router.delete('/:id/permanent', protect, authorize('admin'), async (req, res) => {
+  try {
+    const result = await permanentDeleteArchive(req.params.id);
+
+    await logActivity({
+      userId: req.user.id,
+      action: 'PERMANENT_DELETE',
+      module: 'ARCHIVE',
+      entityId: req.params.id,
+      entityType: result.archive.documentType,
+      newData: {
+        originalId: result.archive.originalId,
+        documentNumber: result.archive.documentNumber,
+        wasRestored: result.archive.isRestored
+      },
+      req
+    });
+
+    res.json({
+      success: true,
+      message: 'Archive entry permanently deleted'
+    });
+  } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    if (error.statusCode === 400) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error('Permanent delete archive error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'

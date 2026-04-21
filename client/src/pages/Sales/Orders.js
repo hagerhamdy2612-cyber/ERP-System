@@ -3,7 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
-import { Plus, ShoppingCart, CheckCircle, Truck, Package, Trash2, FileText, Printer, X } from 'lucide-react';
+import { Plus, ShoppingCart, CheckCircle, Truck, Package, Trash2, FileText, Printer, X, Pencil } from 'lucide-react';
 
 const SalesOrders = () => {
   const { t } = useTranslation();
@@ -12,6 +12,7 @@ const SalesOrders = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
   const [invoiceData, setInvoiceData] = useState(null);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
@@ -21,6 +22,53 @@ const SalesOrders = () => {
     deliveryDate: '',
     notes: ''
   });
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingId(null);
+    setFormData({
+      customer: '',
+      items: [{ product: '', quantity: '' }],
+      deliveryDate: '',
+      notes: ''
+    });
+  };
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setFormData({
+      customer: '',
+      items: [{ product: '', quantity: '' }],
+      deliveryDate: '',
+      notes: ''
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (order) => {
+    const items =
+      order.items?.length > 0
+        ? order.items.map((item) => ({
+            product: item.product?._id || item.product || '',
+            quantity: String(item.quantity ?? '')
+          }))
+        : [{ product: '', quantity: '' }];
+    let deliveryStr = '';
+    if (order.deliveryDate) {
+      const d = new Date(order.deliveryDate);
+      if (!Number.isNaN(d.getTime())) {
+        deliveryStr = d.toISOString().slice(0, 10);
+      }
+    }
+    setEditingId(order._id);
+    setFormData({
+      customer: order.customer?._id || order.customer || '',
+      items,
+      deliveryDate: deliveryStr,
+      notes: order.notes || ''
+    });
+    setShowModal(true);
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -74,22 +122,22 @@ const SalesOrders = () => {
         return;
       }
 
-      await axios.post('/api/sales/orders', submitData);
-      toast.success(t('sales.messages.orderCreated'));
-      setShowModal(false);
-      setFormData({
-        customer: '',
-        items: [{ product: '', quantity: '' }],
-        deliveryDate: '',
-        notes: ''
-      });
+      if (editingId) {
+        await axios.put(`/api/sales/orders/${editingId}`, submitData);
+        toast.success(t('sales.messages.orderUpdated'));
+      } else {
+        await axios.post('/api/sales/orders', submitData);
+        toast.success(t('sales.messages.orderCreated'));
+      }
+      closeModal();
       fetchOrders();
     } catch (error) {
       console.error('Create sales order error:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          t('sales.errors.createFailed');
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        (editingId ? t('sales.errors.updateFailed') : t('sales.errors.createFailed'));
       toast.error(errorMessage);
     }
   };
@@ -176,6 +224,7 @@ const SalesOrders = () => {
       case 'delivered': return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'shipped': return <Truck className="h-5 w-5 text-blue-500" />;
       case 'confirmed': return <Package className="h-5 w-5 text-yellow-500" />;
+      case 'in-production': return <Package className="h-5 w-5 text-orange-500" />;
       case 'pending': return <ShoppingCart className="h-5 w-5 text-gray-500" />;
       default: return <ShoppingCart className="h-5 w-5 text-gray-500" />;
     }
@@ -186,6 +235,7 @@ const SalesOrders = () => {
       case 'delivered': return 'bg-green-100 text-green-800';
       case 'shipped': return 'bg-blue-100 text-blue-800';
       case 'confirmed': return 'bg-yellow-100 text-yellow-800';
+      case 'in-production': return 'bg-orange-100 text-orange-800';
       case 'pending': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -210,7 +260,7 @@ const SalesOrders = () => {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -251,13 +301,13 @@ const SalesOrders = () => {
                       )}
                     </div>
                     <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="font-medium">Items:</span> {order.items.map(item => 
-                        `${item.product?.name || 'Unknown Product'} (${item.quantity})`
+                      <span className="font-medium">{t('sales.orders.items')}:</span> {order.items.map(item => 
+                        `${item.product?.name || t('common.unknownProduct')} (${item.quantity})`
                       ).join(', ')}
                     </div>
                     {order.notes && (
                       <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="font-medium">Notes:</span> {order.notes}
+                        <span className="font-medium">{t('common.notes')}:</span> {order.notes}
                       </div>
                     )}
                   </div>
@@ -267,21 +317,31 @@ const SalesOrders = () => {
                     onClick={() => handleViewInvoice(order._id)}
                     disabled={loadingInvoice}
                     className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/20 transition-colors"
-                    title="View Invoice"
+                    title={t('common.viewInvoice')}
                   >
                     <FileText className="h-3 w-3 mr-1" />
-                    Invoice
+                    {t('common.invoice')}
                   </button>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                    {order.status}
+                    {t(`sales.reports.status.${order.status}`, { defaultValue: order.status })}
                   </span>
                   {order.status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(order)}
+                      className="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-slate-600 text-xs font-medium rounded text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      {t('common.edit')}
+                    </button>
+                  )}
+                  {(order.status === 'pending' || order.status === 'in-production') && (
                     <button
                       onClick={() => handleConfirm(order._id)}
                       className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
                     >
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      Confirm
+                      {t('common.confirm')}
                     </button>
                   )}
                   {order.status === 'confirmed' && (
@@ -313,10 +373,11 @@ const SalesOrders = () => {
           <div className="relative top-10 mx-auto p-6 border border-gray-200 dark:border-slate-700 w-full max-w-2xl shadow-lg rounded-lg bg-white dark:bg-slate-800 transition-colors duration-300">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                Create Sales Order
+                {editingId ? t('sales.orders.editOrder') : t('sales.orders.createOrder')}
               </h3>
               <button
-                onClick={() => setShowModal(false)}
+                type="button"
+                onClick={closeModal}
                 className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -325,7 +386,7 @@ const SalesOrders = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Customer
+                  {t('common.customers')}
                 </label>
                 <select
                   required
@@ -333,17 +394,17 @@ const SalesOrders = () => {
                   onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
-                  <option value="">Select Customer</option>
+                  <option value="">{t('sales.orders.selectCustomer')}</option>
                   {customers.map(customer => (
                     <option key={customer._id} value={customer._id}>
-                      {customer?.name || 'Unknown Customer'}
+                      {customer?.name || t('sales.orders.unknownCustomer')}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Items
+                  {t('sales.orders.items')}
                 </label>
                 {formData.items.map((item, index) => (
                   <div key={index} className="flex flex-wrap items-center gap-3 mb-3 p-2 rounded-md bg-gray-50 dark:bg-slate-700/40">
@@ -352,17 +413,17 @@ const SalesOrders = () => {
                       onChange={(e) => updateItem(index, 'product', e.target.value)}
                       className="min-w-[180px] flex-1 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                     >
-                      <option value="">Select Product</option>
+                      <option value="">{t('sales.orders.selectProduct')}</option>
                       {products.filter(p => p.category === 'final-product' || p.category === 'finished-good').map(product => (
                         <option key={product._id} value={product._id}>
-                          {product?.name || 'Unknown Product'} (${(product.sellingPrice != null && product.sellingPrice > 0 ? product.sellingPrice : product.unitCost || 0).toLocaleString()})
+                          {product?.name || t('common.unknownProduct')} (${(product.sellingPrice != null && product.sellingPrice > 0 ? product.sellingPrice : product.unitCost || 0).toLocaleString()})
                         </option>
                       ))}
                     </select>
                     <input
                       type="number"
                       min="1"
-                      placeholder="Qty"
+                      placeholder={t('sales.orders.qty')}
                       value={item.quantity}
                       onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                       className="w-20 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
@@ -380,7 +441,7 @@ const SalesOrders = () => {
                         type="button"
                         onClick={() => removeItem(index)}
                         className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title="Remove item"
+                        title={t('common.removeItem')}
                       >
                         ×
                       </button>
@@ -392,12 +453,12 @@ const SalesOrders = () => {
                   onClick={addItem}
                   className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors"
                 >
-                  + Add Item
+                  + {t('sales.orders.addItem')}
                 </button>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Delivery Date
+                  {t('sales.orders.deliveryDate')}
                 </label>
                 <input
                   type="date"
@@ -408,7 +469,7 @@ const SalesOrders = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Notes
+                  {t('common.notes')}
                 </label>
                 <textarea
                   value={formData.notes}
@@ -420,16 +481,16 @@ const SalesOrders = () => {
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
                 >
-                  Create Order
+                  {editingId ? t('sales.orders.updateOrder') : t('sales.orders.createOrder')}
                 </button>
               </div>
             </form>
@@ -442,7 +503,7 @@ const SalesOrders = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black dark:bg-opacity-70 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-full max-w-4xl shadow-lg rounded-md bg-white dark:bg-slate-800 print:shadow-none print:bg-white transition-colors duration-300">
             <div className="mb-4 flex justify-between items-center print:hidden">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Sales Invoice</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('sales.orders.salesInvoice')}</h3>
               <div className="flex space-x-2">
                 <button
                   onClick={handlePrintInvoice}
@@ -470,14 +531,14 @@ const SalesOrders = () => {
               <div className="mb-8 border-b-2 border-gray-300 dark:border-slate-700 print:border-gray-300 pb-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white print:text-gray-900 mb-2">MTI-ERP</h1>
-                    <p className="text-gray-600 dark:text-gray-400 print:text-gray-600">Sales Invoice</p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white print:text-gray-900 mb-2">{t('common.brandName')}</h1>
+                    <p className="text-gray-600 dark:text-gray-400 print:text-gray-600">{t('sales.orders.salesInvoice')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">Invoice #: <span className="font-semibold">{invoiceData.invoiceNumber}</span></p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">Order #: <span className="font-semibold">{invoiceData.salesOrder?.orderNumber || 'N/A'}</span></p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">Date: <span className="font-semibold">{new Date(invoiceData.invoiceDate).toLocaleDateString()}</span></p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">Due Date: <span className="font-semibold">{new Date(invoiceData.dueDate).toLocaleDateString()}</span></p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{t('sales.orders.invoiceNo')}: <span className="font-semibold">{invoiceData.invoiceNumber}</span></p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{t('sales.orders.orderNo')}: <span className="font-semibold">{invoiceData.salesOrder?.orderNumber || t('common.unknown')}</span></p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{t('common.date')}: <span className="font-semibold">{new Date(invoiceData.invoiceDate).toLocaleDateString()}</span></p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{t('sales.orders.dueDate')}: <span className="font-semibold">{new Date(invoiceData.dueDate).toLocaleDateString()}</span></p>
                   </div>
                 </div>
               </div>
@@ -485,7 +546,7 @@ const SalesOrders = () => {
               {/* Bill To */}
               <div className="mb-8 grid grid-cols-2 gap-8">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2">Bill To:</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2">{t('sales.orders.billTo')}:</h3>
                   <p className="text-sm text-gray-900 dark:text-white print:text-gray-900 font-medium">{invoiceData.customer?.name || 'N/A'}</p>
                   {invoiceData.customer?.company && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{invoiceData.customer.company}</p>
@@ -511,9 +572,9 @@ const SalesOrders = () => {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2">Payment Terms:</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2">{t('sales.orders.paymentTerms')}:</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{invoiceData.paymentTerms || 'Net 30'}</p>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2 mt-4">Status:</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2 mt-4">{t('common.status')}:</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600 capitalize">{invoiceData.status}</p>
                 </div>
               </div>
@@ -523,17 +584,17 @@ const SalesOrders = () => {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 print:divide-gray-200">
                   <thead className="bg-gray-50 dark:bg-slate-700 print:bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">Item</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">Quantity</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">Unit Price</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">Total</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">{t('sales.orders.item')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">{t('sales.orders.quantity')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">{t('sales.orders.unitPrice')}</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 print:text-gray-500 uppercase tracking-wider">{t('common.total')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-slate-800 print:bg-white divide-y divide-gray-200 dark:divide-slate-700 print:divide-gray-200">
                     {invoiceData.items.map((item, index) => (
                       <tr key={index}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white print:text-gray-900">
-                          {item.productName || item.product?.name || 'Unknown Product'}
+                          {item.productName || item.product?.name || t('common.unknownProduct')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 print:text-gray-500">
                           {item.quantity}
@@ -554,19 +615,19 @@ const SalesOrders = () => {
               <div className="flex justify-end">
                 <div className="w-64">
                   <div className="flex justify-between py-2 border-b border-gray-200 dark:border-slate-700 print:border-gray-200">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">Subtotal:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{t('sales.orders.subtotal')}:</span>
                     <span className="text-sm font-medium text-gray-900 dark:text-white print:text-gray-900">
                       ${invoiceData.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-gray-200 dark:border-slate-700 print:border-gray-200">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">Tax:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{t('sales.orders.tax')}:</span>
                     <span className="text-sm font-medium text-gray-900 dark:text-white print:text-gray-900">
                       ${invoiceData.tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between py-4">
-                    <span className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">Total:</span>
+                    <span className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">{t('common.total')}:</span>
                     <span className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
                       ${invoiceData.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
@@ -577,15 +638,15 @@ const SalesOrders = () => {
               {/* Notes */}
               {invoiceData.notes && (
                 <div className="mt-8 pt-4 border-t border-gray-200 dark:border-slate-700 print:border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2">Notes:</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700 mb-2">{t('common.notes')}:</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-600">{invoiceData.notes}</p>
                 </div>
               )}
 
               {/* Footer */}
               <div className="mt-8 pt-4 border-t border-gray-200 dark:border-slate-700 print:border-gray-200 text-center text-xs text-gray-500 dark:text-gray-400 print:text-gray-500">
-                <p>Thank you for your business!</p>
-                <p className="mt-2">MTI-ERP System</p>
+                <p>{t('sales.orders.thankYou')}</p>
+                <p className="mt-2">{t('common.systemName')}</p>
               </div>
             </div>
           </div>

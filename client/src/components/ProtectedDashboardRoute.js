@@ -32,7 +32,7 @@ const ProtectedDashboardRoute = ({ children, module, fallbackPath = '/app/login'
       'HR': '/app/hr/employees',
       'Sales': '/app/sales/orders',
       'Purchasing': '/app/purchasing/orders',
-      'Inventory': '/app/inventory/products',
+      'Inventory': '/app/inventory/raw-materials',
       'Manufacturing': '/app/manufacturing/orders',
       'CRM': '/app/crm/customers',
       'SCM': '/app/scm/suppliers',

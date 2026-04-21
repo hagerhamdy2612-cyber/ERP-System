@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
 import { Clock, CheckCircle, XCircle, AlertCircle, Users, Filter } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,6 +13,7 @@ const isHRUser = (user) => {
 };
 
 const Attendance = () => {
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
   const [attendance, setAttendance] = useState([]);
@@ -240,18 +242,18 @@ const Attendance = () => {
     // User object has 'id' property (not '_id') from auth API
     if (!user || (!user.id && !user._id)) {
       console.error('User object:', user);
-      toast.error('Please wait, user information is loading...');
+      toast.error(t('hr.attendance.userLoading'));
       return;
     }
     
     if (!canCheckInOut(user)) {
-      toast.error('You do not have permission to check in/out');
+      toast.error(t('hr.attendance.noPermission'));
       return;
     }
     
     try {
       const response = await axios.post('/api/hr/attendance/checkin');
-      toast.success('Checked in successfully');
+      toast.success(t('hr.attendance.checkedInSuccess'));
       
       // Set today's attendance with the response data immediately
       if (response.data && response.data.data) {
@@ -280,7 +282,7 @@ const Attendance = () => {
       console.error('Check-in error:', error);
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
-                          'Failed to check in';
+                          t('hr.attendance.checkInFailed');
       
       // If already checked in (400), refresh status instead of showing error
       const userId = getUserId();
@@ -306,18 +308,18 @@ const Attendance = () => {
     // User object has 'id' property (not '_id') from auth API
     if (!user || (!user.id && !user._id)) {
       console.error('User object:', user);
-      toast.error('Please wait, user information is loading...');
+      toast.error(t('hr.attendance.userLoading'));
       return;
     }
     
     if (!canCheckInOut(user)) {
-      toast.error('You do not have permission to check in/out');
+      toast.error(t('hr.attendance.noPermission'));
       return;
     }
     
     try {
       const response = await axios.post('/api/hr/attendance/checkout');
-      toast.success('Checked out successfully');
+      toast.success(t('hr.attendance.checkedOutSuccess'));
       
       // Update states immediately
       setCanCheckIn(false);
@@ -344,7 +346,7 @@ const Attendance = () => {
       console.error('Check-out error:', error);
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
-                          'Failed to check out';
+                          t('hr.attendance.checkOutFailed');
       toast.error(errorMessage);
       
       // Refresh today's attendance to get latest state
@@ -386,7 +388,7 @@ const Attendance = () => {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500 dark:text-gray-400">Please log in to view attendance.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('hr.attendance.loginToView')}</p>
       </div>
     );
   }
@@ -395,11 +397,11 @@ const Attendance = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Attendance</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('hr.attendance.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {canViewAllAttendanceRecords(user) 
-            ? 'Track all employee attendance and working hours' 
-            : 'Track your attendance and working hours'
+            ? t('hr.attendance.trackAll')
+            : t('hr.attendance.trackYour')
           }
         </p>
       </div>
@@ -407,7 +409,7 @@ const Attendance = () => {
       {/* Check In/Out Controls - Available to all users */}
       {canCheckInOut(user) && (
         <Card>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Today's Attendance</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{t('hr.attendance.todaysAttendance')}</h3>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {todayAttendance && todayAttendance.checkIn ? (
@@ -416,15 +418,16 @@ const Attendance = () => {
                     <>
                       <CheckCircle className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                       <span className="text-sm text-gray-600 dark:text-gray-300">
-                        Checked in today at {new Date(todayAttendance.checkIn).toLocaleTimeString()}
-                        • Checked out at {new Date(todayAttendance.checkOut).toLocaleTimeString()}
+                        {t('hr.attendance.checkedInAt')} {new Date(todayAttendance.checkIn).toLocaleTimeString()}
+                        {' • '}
+                        {t('hr.attendance.checkedOutAt')} {new Date(todayAttendance.checkOut).toLocaleTimeString()}
                       </span>
                     </>
                   ) : (
                     <>
                       <CheckCircle className="h-5 w-5 text-green-500 dark:text-green-400" />
                       <span className="text-sm text-gray-600 dark:text-gray-300">
-                        Checked in today at {new Date(todayAttendance.checkIn).toLocaleTimeString()}
+                        {t('hr.attendance.checkedInAt')} {new Date(todayAttendance.checkIn).toLocaleTimeString()}
                       </span>
                     </>
                   )}
@@ -432,7 +435,7 @@ const Attendance = () => {
               ) : (
                 <div className="flex items-center space-x-2">
                   <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Not checked in today</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{t('hr.attendance.notCheckedInToday')}</span>
                 </div>
               )}
             </div>
@@ -443,7 +446,7 @@ const Attendance = () => {
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
                 >
                   <Clock className="h-4 w-4 mr-2" />
-                  Check In
+                  {t('hr.attendance.checkIn')}
                 </button>
               )}
               
@@ -453,7 +456,7 @@ const Attendance = () => {
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
                 >
                   <Clock className="h-4 w-4 mr-2" />
-                  Check Out
+                  {t('hr.attendance.checkOut')}
                 </button>
               )}
             </div>
@@ -465,7 +468,7 @@ const Attendance = () => {
       {canViewAllAttendanceRecords(user) && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Filter Records</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('hr.attendance.filterRecords')}</h3>
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
                 <Filter className="h-4 w-4 mr-2 text-gray-400 dark:text-gray-500" />
@@ -486,7 +489,7 @@ const Attendance = () => {
                 }}
                 className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
               >
-                Clear Filter
+                {t('hr.attendance.clearFilter')}
               </button>
             </div>
           </div>
@@ -497,19 +500,19 @@ const Attendance = () => {
       <Card padding={false} className="overflow-hidden">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-slate-700">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-            {canViewAllAttendanceRecords(user) ? 'All Attendance Records' : 'Your Attendance Records'}
+            {canViewAllAttendanceRecords(user) ? t('hr.attendance.allRecords') : t('hr.attendance.yourRecords')}
           </h3>
           <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
             {canViewAllAttendanceRecords(user) 
-              ? 'Complete attendance history for all employees' 
-              : 'Your recent attendance history'
+              ? t('hr.attendance.allHistory')
+              : t('hr.attendance.yourHistory')
             }
           </p>
         </div>
         <ul className="divide-y divide-gray-200 dark:divide-slate-700">
           {attendance.length === 0 ? (
             <li className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-              No attendance records found
+              {t('hr.attendance.noRecords')}
             </li>
           ) : (
             attendance
@@ -524,10 +527,10 @@ const Attendance = () => {
                     <div className="ml-4">
                       <div className="flex items-center">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {record.employee?.user?.name || 'Unknown Employee'}
+                          {record.employee?.user?.name || t('hr.attendance.unknownEmployee')}
                         </p>
                         <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-400">
-                          {record.employee?.employeeId || 'N/A'}
+                          {record.employee?.employeeId || t('common.unknown')}
                         </span>
                         {canViewAllAttendanceRecords(user) && record.employee?.department && (
                           <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300">
@@ -540,25 +543,25 @@ const Attendance = () => {
                         {record.checkIn && (
                           <>
                             <span className="mx-2">•</span>
-                            <span>In: {new Date(record.checkIn).toLocaleTimeString()}</span>
+                            <span>{t('hr.attendance.in')}: {new Date(record.checkIn).toLocaleTimeString()}</span>
                           </>
                         )}
                         {record.checkOut && (
                           <>
                             <span className="mx-2">•</span>
-                            <span>Out: {new Date(record.checkOut).toLocaleTimeString()}</span>
+                            <span>{t('hr.attendance.out')}: {new Date(record.checkOut).toLocaleTimeString()}</span>
                           </>
                         )}
                         {record.workingHours > 0 && (
                           <>
                             <span className="mx-2">•</span>
-                            <span>{record.workingHours}h worked</span>
+                            <span>{t('hr.attendance.workedHours', { count: record.workingHours })}</span>
                           </>
                         )}
                         {record.overtime > 0 && (
                           <>
                             <span className="mx-2">•</span>
-                            <span className="text-yellow-600 dark:text-yellow-400">{record.overtime}h overtime</span>
+                            <span className="text-yellow-600 dark:text-yellow-400">{t('hr.attendance.overtimeHours', { count: record.overtime })}</span>
                           </>
                         )}
                       </div>
@@ -566,7 +569,7 @@ const Attendance = () => {
                   </div>
                   <div className="flex items-center">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
-                      {record.status}
+                      {t(`hr.reports.${record.status}`, { defaultValue: record.status })}
                     </span>
                   </div>
                 </div>

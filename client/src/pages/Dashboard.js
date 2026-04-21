@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { translateNavigationItem } from '../utils/translateNavigation';
 import Card from '../components/Card';
 import {
   Users,
@@ -33,8 +34,52 @@ import {
 } from 'recharts';
 
 const Dashboard = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const locale = i18n.language?.startsWith('ar') ? 'ar-EG' : 'en-US';
+
+  const departmentNavLabel = (dept) => {
+    if (!dept || typeof dept !== 'string') return '';
+    const key = dept.toLowerCase();
+    const map = {
+      sales: 'Sales',
+      purchasing: 'Purchasing',
+      hr: 'HR',
+      inventory: 'Inventory',
+      manufacturing: 'Manufacturing',
+      finance: 'Finance',
+      crm: 'CRM',
+      scm: 'SCM'
+    };
+    return translateNavigationItem(map[key] || dept, t);
+  };
+
+  const translateActivityDescription = (desc) => {
+    if (!desc || typeof desc !== 'string') return desc;
+    const fromMatch = desc.match(/^Order (.+?) from (.+)$/);
+    if (fromMatch) {
+      return t('mainDashboard.activityDescriptions.orderFromParty', {
+        orderNumber: fromMatch[1],
+        name: fromMatch[2]
+      });
+    }
+    const forMatch = desc.match(/^Order (.+?) for (.+)$/);
+    if (forMatch) {
+      return t('mainDashboard.activityDescriptions.orderForProduct', {
+        orderNumber: forMatch[1],
+        product: forMatch[2]
+      });
+    }
+    return desc;
+  };
+
+  const translateActivityStatus = (type, status) => {
+    if (!status) return '';
+    if (type === 'sales') return t(`sales.reports.status.${status}`, { defaultValue: status });
+    if (type === 'purchasing') return t(`purchasing.reports.status.${status}`, { defaultValue: status });
+    if (type === 'production') return t(`manufacturing.reports.status.${status}`, { defaultValue: status });
+    return status;
+  };
   const [kpis, setKpis] = useState(null);
   const [recentActivities, setRecentActivities] = useState([]);
   const [departmentChart, setDepartmentChart] = useState([]);
@@ -98,7 +143,7 @@ const Dashboard = () => {
         },
         {
           title: t('mainDashboard.kpis.salesRevenue'),
-          value: `$${((kpis?.sales?.totalRevenue || 0)).toLocaleString()}`,
+          value: `$${((kpis?.sales?.totalRevenue || 0)).toLocaleString(locale)}`,
           icon: DollarSign,
           color: 'text-green-600',
           bgColor: 'bg-green-100'
@@ -140,7 +185,7 @@ const Dashboard = () => {
         },
         {
           title: t('mainDashboard.kpis.topProduct'),
-          value: kpis?.topProduct?.name || 'N/A',
+          value: kpis?.topProduct?.name || t('common.notApplicable'),
           subtitle: kpis?.topProduct ? `${kpis.topProduct.totalQuantity} ${t('mainDashboard.kpis.sold')}` : t('mainDashboard.kpis.noSalesData'),
           icon: Star,
           color: 'text-pink-600',
@@ -177,8 +222,8 @@ const Dashboard = () => {
             bgColor: 'bg-indigo-100'
           },
           {
-            title: 'Top Product',
-            value: kpis?.topProduct?.name || 'N/A',
+            title: t('mainDashboard.kpis.topProduct'),
+            value: kpis?.topProduct?.name || t('common.notApplicable'),
             subtitle: kpis?.topProduct ? `${kpis.topProduct.quantity} ${t('mainDashboard.kpis.sold')}` : t('mainDashboard.kpis.noSalesData'),
             icon: Star,
             color: 'text-orange-600',
@@ -190,7 +235,7 @@ const Dashboard = () => {
         return [
           {
             title: t('mainDashboard.kpis.totalSpending'),
-            value: `$${((kpis?.spending || 0)).toLocaleString()}`,
+            value: `$${((kpis?.spending || 0)).toLocaleString(locale)}`,
             icon: DollarSign,
             color: 'text-purple-600',
             bgColor: 'bg-purple-100'
@@ -203,14 +248,14 @@ const Dashboard = () => {
             bgColor: 'bg-blue-100'
           },
           {
-            title: 'Active Suppliers',
+            title: t('mainDashboard.kpis.activeSuppliers'),
             value: kpis?.suppliers || 0,
             icon: Truck,
             color: 'text-indigo-600',
             bgColor: 'bg-indigo-100'
           },
           {
-            title: 'Pending Orders',
+            title: t('mainDashboard.kpis.pendingOrders'),
             value: kpis?.pending || 0,
             icon: Clock,
             color: 'text-yellow-600',
@@ -268,7 +313,7 @@ const Dashboard = () => {
           },
           {
             title: t('mainDashboard.kpis.totalValue'),
-            value: `$${((kpis?.totalValue || 0)).toLocaleString()}`,
+            value: `$${((kpis?.totalValue || 0)).toLocaleString(locale)}`,
             icon: DollarSign,
             color: 'text-green-600',
             bgColor: 'bg-green-100'
@@ -306,7 +351,7 @@ const Dashboard = () => {
             bgColor: 'bg-yellow-100'
           },
           {
-            title: 'Efficiency Rate',
+            title: t('mainDashboard.kpis.efficiencyRate'),
             value: `${kpis?.efficiency || 0}%`,
             icon: TrendingUp,
             color: 'text-purple-600',
@@ -408,14 +453,24 @@ const Dashboard = () => {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              {user?.role === 'admin' ? t('mainDashboard.charts.salesRevenueChart') : `${user?.department} ${t('mainDashboard.charts.performanceTrend')}`}
+              {user?.role === 'admin'
+                ? t('mainDashboard.charts.salesRevenueChart')
+                : `${departmentNavLabel(user?.department)} ${t('mainDashboard.charts.performanceTrend')}`}
             </h3>
             <div className="flex items-center text-sm text-green-600">
               <TrendingUp className="h-4 w-4 mr-1" />
-              {departmentChart.length > 0 ? 
-                `$${departmentChart.reduce((sum, item) => sum + (user?.role === 'admin' ? (item.revenue || 0) : (item.value || 0)), 0).toLocaleString()} total` : 
-                  t('common.noData')
-              }
+              {departmentChart.length > 0
+                ? t('mainDashboard.chartTotalLine', {
+                    amount: `$${departmentChart
+                      .reduce(
+                        (sum, item) =>
+                          sum +
+                          (user?.role === 'admin' ? item.revenue || 0 : item.value || 0),
+                        0
+                      )
+                      .toLocaleString(locale)}`
+                  })
+                : t('common.noData')}
             </div>
           </div>
           <div className="h-64">
@@ -429,7 +484,9 @@ const Dashboard = () => {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    tickFormatter={(value) =>
+                      new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+                    }
                   />
                   <YAxis 
                     stroke="#666"
@@ -439,7 +496,7 @@ const Dashboard = () => {
                     tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip 
-                    formatter={(value) => [`$${value.toLocaleString()}`, t('sales.dashboard.revenue')]}
+                    formatter={(value) => [`$${value.toLocaleString(locale)}`, t('sales.reports.revenue')]}
                     contentStyle={{
                       backgroundColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
                       border: `1px solid ${document.documentElement.classList.contains('dark') ? '#334155' : '#e5e7eb'}`,
@@ -447,7 +504,7 @@ const Dashboard = () => {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                       color: document.documentElement.classList.contains('dark') ? '#fff' : '#000'
                     }}
-                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                    labelFormatter={(value) => new Date(value).toLocaleDateString(locale)}
                   />
                   <Line 
                     type="monotone" 
@@ -484,13 +541,15 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">{activity.description}</p>
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      {translateActivityDescription(activity.description)}
+                    </p>
                     <div className="flex items-center space-x-2 mt-1">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
-                        {activity.status}
+                        {translateActivityStatus(activity.type, activity.status)}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(activity.timestamp).toLocaleDateString()}
+                        {new Date(activity.timestamp).toLocaleDateString(locale)}
                       </span>
                     </div>
                   </div>
@@ -560,7 +619,7 @@ const Dashboard = () => {
             <div className="flex justify-between">
               <span className="text-sm text-gray-500 dark:text-gray-400">{t('mainDashboard.charts.totalValue')}</span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
-                ${(kpis?.inventory?.totalValue || 0).toLocaleString()}
+                ${(kpis?.inventory?.totalValue || 0).toLocaleString(locale)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -570,7 +629,7 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Total Products</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('inventory.dashboard.totalProducts')}</span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {kpis?.inventory?.totalProducts || 0}
               </span>
