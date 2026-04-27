@@ -10,7 +10,6 @@ const Invoice = require('../models/Invoice');
 const { protect, authorizeCreateSalesOrder, authorizeSalesOrderWorkflow } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 const { archiveDocument } = require('../services/archiveService');
-const { applySalesOrderPayrollBonus } = require('../services/salesPayrollBonusService');
 const { shouldTriggerAutoPurchaseForProduct } = require('../utils/autoPurchaseLowStock');
 
 const router = express.Router();
@@ -315,17 +314,6 @@ router.post('/orders', [
       await ensureProductionOrdersForShortages(salesOrder, needsOnCreate);
     }
     await salesOrder.populate('productionOrder', 'orderNumber status');
-
-    if (employee && employee.department === 'Sales') {
-      try {
-        await applySalesOrderPayrollBonus(employee, total, {
-          orderNumber: salesOrder.orderNumber,
-          orderDate: salesOrder.orderDate
-        });
-      } catch (bonusErr) {
-        console.error('Sales order payroll bonus error:', bonusErr);
-      }
-    }
 
     let invoiceNumber = await getNextInvoiceNumber();
     let invExisting = await Invoice.findOne({ invoiceNumber });

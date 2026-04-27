@@ -22,6 +22,7 @@ const Employees = () => {
     password: '',
     role: 'employee',
     department: '',
+    salary: '',
     phone: ''
   });
 
@@ -58,7 +59,7 @@ const Employees = () => {
           email: formData.email,
           role: formData.role,
           department: formData.department,
-          holidays: formData.holidays || 0,
+          salary: formData.salary === '' ? 0 : parseFloat(formData.salary),
           phone: formData.phone || ''
         };
         
@@ -77,11 +78,10 @@ const Employees = () => {
         console.log('Form validation - password:', formData.password);
         console.log('Form validation - role:', formData.role);
         console.log('Form validation - department:', formData.department);
-        console.log('Form validation - holidays:', formData.holidays);
         
         const response = await axios.post('/api/hr/employees', {
           ...formData,
-          holidays: formData.holidays || 0,
+          salary: formData.salary === '' ? 0 : parseFloat(formData.salary),
           phone: formData.phone || ''
         });
         console.log('Employee created:', response.data);
@@ -95,7 +95,7 @@ const Employees = () => {
         password: '',
         role: 'employee',
         department: '',
-        holidays: '',
+        salary: '',
         phone: ''
       });
       // Force refresh the employees list
@@ -146,7 +146,7 @@ const Employees = () => {
       password: '', // Don't show password for editing
       role: employee.user.role || 'employee',
       department: employee.department || '',
-      holidays: employee.holidays || '',
+      salary: employee.salary || '',
       phone: employee.personalInfo?.phone || ''
     });
     setShowModal(true);
@@ -273,10 +273,10 @@ const Employees = () => {
                       <span>{employee.position}</span>
                       <span className="mx-2">•</span>
                       <span>{employee.department}</span>
-                      {employee.holidays !== undefined && employee.holidays > 0 && (
+                      {employee.salary !== undefined && employee.salary > 0 && (
                         <>
                           <span className="mx-2">•</span>
-                          <span>{employee.holidays} {t('hr.employees.holidaysCount')}</span>
+                          <span>{t('hr.employees.baseSalary') || 'Base Salary'}: {employee.salary}</span>
                         </>
                       )}
                     </div>
@@ -449,6 +449,20 @@ const Employees = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('hr.employees.baseSalary') || 'Base Salary'}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.salary}
+                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                  className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('hr.employees.phoneNumber')}
                 </label>
                 <input
@@ -460,20 +474,6 @@ const Employees = () => {
                   className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('common.optional')}: {t('validation.phoneHint')}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('hr.employees.holidays')}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={formData.holidays}
-                  onChange={(e) => setFormData({ ...formData, holidays: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  placeholder="0"
-                />
               </div>
               <div className="flex justify-end space-x-3 pt-4">
                 <button

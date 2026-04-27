@@ -4,9 +4,6 @@ const Expense = require('../models/Expense');
 
 const PAYROLL_EXPENSE_CATEGORY = 'Payroll';
 
-/**
- * Records an outgoing bank transaction + expense for a paid payroll (same pattern as POST /api/finance/expenses).
- */
 async function recordPayrollExpense({
   netPay,
   payrollRecordId,
@@ -15,7 +12,8 @@ async function recordPayrollExpense({
   periodMonth,
   bankAccountId,
   paymentDate,
-  notes
+  notes,
+  existingExpenseId
 }) {
   const bankAccount = await BankAccount.findById(bankAccountId);
   if (!bankAccount) {
@@ -46,9 +44,24 @@ async function recordPayrollExpense({
     notes ||
     `Payroll record ${payrollRecordId} — ${employeeDisplayName} ${periodLabel}`;
 
+  let expense = null;
+  if (existingExpenseId) {
+    expense = await Expense.findById(existingExpenseId);
+    if (!expense) {
+      const err = new Error('Linked payroll expense not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (expense.status === 'Paid') {
+      const err = new Error('This payroll expense is already paid');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
   const transaction = await Transaction.create({
     sourceType: 'expense',
-    sourceId: null,
+    sourceId: existingExpenseId || null,
     sourceModel: 'Expense',
     direction: 'out',
     amount,
@@ -57,18 +70,36 @@ async function recordPayrollExpense({
     notes: noteText
   });
 
-  const expense = await Expense.create({
-    title,
-    amount,
-    category: PAYROLL_EXPENSE_CATEGORY,
-    bankAccount: bankAccountId,
-    transaction: transaction._id,
-    date: payDate,
-    notes: noteText
-  });
+  if (expense) {
+    expense.title = expense.title || title;
+    expense.amount = amount;
+    expense.category = PAYROLL_EXPENSE_CATEGORY;
+    expense.bankAccount = bankAccountId;
+    expense.transaction = transaction._id;
+    expense.date = payDate;
+    expense.notes = noteText;
+    expense.status = 'Paid';
+    await expense.save();
+  } else {
+    expense = await Expense.create({
+      title,
+      amount,
+      category: PAYROLL_EXPENSE_CATEGORY,
+      source: 'Payroll',
+      type: 'Salary',
+      status: 'Paid',
+      referencePayrollId: payrollRecordId,
+      bankAccount: bankAccountId,
+      transaction: transaction._id,
+      date: payDate,
+      notes: noteText
+    });
+  }
 
-  transaction.sourceId = expense._id;
-  await transaction.save();
+  if (!transaction.sourceId) {
+    transaction.sourceId = expense._id;
+    await transaction.save();
+  }
 
   bankAccount.balance -= amount;
   await bankAccount.save();

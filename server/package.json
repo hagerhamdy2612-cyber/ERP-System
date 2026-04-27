@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "reset:payroll:test": "node scripts/resetPayrollTestingState.js",
+    "seed:attendance:test": "node scripts/generateAttendanceTestData.js",
+    "seed:test:reset": "node scripts/resetTestData.js",
+    "seed:test:attendance": "node scripts/generateAttendanceTestData.js",
+    "pipeline:payroll:test": "npm run reset:payroll:test && npm run seed:attendance:test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -7,9 +7,9 @@ const router = express.Router();
 router.use(protect, authorizeAdminOrHR);
 
 router.get('/', payrollController.listPayroll);
+router.delete('/', payrollController.deleteAllPayroll);
+router.post('/generate', payrollController.generatePayroll);
+router.patch('/approve/:id', payrollController.approvePayroll);
 router.get('/:id', payrollController.getPayrollById);
-router.post('/', payrollController.createPayroll);
-router.put('/:id', payrollController.updatePayroll);
-router.delete('/:id', payrollController.deletePayroll);
 
 module.exports = router;

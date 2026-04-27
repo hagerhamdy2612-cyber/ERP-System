@@ -112,6 +112,35 @@ const AttendanceReport = () => {
     return time;
   };
 
+  const toOvertimeMinutes = (row) => {
+    const minutesFromField = Number(row?.overtimeMinutes);
+    if (Number.isFinite(minutesFromField) && minutesFromField >= 0) {
+      return Math.round(minutesFromField);
+    }
+
+    const hoursFromField = Number(row?.overtimeHours);
+    if (Number.isFinite(hoursFromField) && hoursFromField >= 0) {
+      return Math.round(hoursFromField * 60);
+    }
+
+    if (typeof row?.overtime === 'string' && row.overtime.includes(':')) {
+      const [h, m] = row.overtime.split(':').map((part) => Number(part));
+      if (Number.isFinite(h) && Number.isFinite(m) && h >= 0 && m >= 0) {
+        return (h * 60) + m;
+      }
+    }
+
+    return 0;
+  };
+
+  const formatOvertimeDisplay = (row) => {
+    const totalMinutes = toOvertimeMinutes(row);
+    if (totalMinutes <= 0) return '0 min';
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes}m (${totalMinutes} min)`;
+  };
+
   // Export to CSV
   const exportToCSV = () => {
     if (reportData.length === 0) {
@@ -121,18 +150,14 @@ const AttendanceReport = () => {
 
     const headers = [
       t('hr.attendanceReport.employeeName'),
-      t('hr.attendanceReport.employeeId'),
       t('common.date'),
       t('hr.attendanceReport.checkIn'),
       t('hr.attendanceReport.checkOut'),
       t('hr.attendanceReport.status'),
       t('hr.attendanceReport.totalWorkingHours'),
-      t('hr.attendanceReport.expectedStart'),
-      t('hr.attendanceReport.actualCheckIn'),
       t('hr.attendanceReport.minutesLate'),
-      t('hr.attendanceReport.expectedEnd'),
-      t('hr.attendanceReport.actualCheckOut'),
       t('hr.attendanceReport.minutesEarly'),
+      'Overtime',
       t('hr.attendanceReport.totalAbsentDays'),
       t('hr.attendanceReport.absencePercent')
     ];
@@ -141,18 +166,14 @@ const AttendanceReport = () => {
       headers.join(','),
       ...reportData.map(row => [
         `"${row.employeeName || ''}"`,
-        row.employeeId || '',
         row.date || '',
         row.checkIn || 'N/A',
         row.checkOut || 'N/A',
         row.status || '',
         row.totalWorkingHours || 0,
-        row.expectedStartTime || '',
-        row.actualCheckIn || 'N/A',
         row.minutesLate || 0,
-        row.expectedEndTime || '',
-        row.actualCheckOut || 'N/A',
         row.minutesEarly || 0,
+        formatOvertimeDisplay(row),
         row.totalAbsentDays || 0,
         row.absencePercentage || 0
       ].join(','))
@@ -319,22 +340,13 @@ const AttendanceReport = () => {
                     {t('hr.attendanceReport.workingHours')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('hr.attendanceReport.expectedStart')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('hr.attendanceReport.actualCheckIn')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('hr.attendanceReport.minutesLate')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('hr.attendanceReport.expectedEnd')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('hr.attendanceReport.actualCheckOut')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('hr.attendanceReport.minutesEarly')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Overtime
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('hr.attendanceReport.totalAbsentDays')}
@@ -377,13 +389,7 @@ const AttendanceReport = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {row.totalWorkingHours.toFixed(2)}h
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {row.expectedStartTime}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatTime(row.actualCheckIn)}
+                      {row.totalWorkingHours || '00:00'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {row.minutesLate > 0 ? (
@@ -392,15 +398,16 @@ const AttendanceReport = () => {
                         <span className="text-gray-500">0 min</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {row.expectedEndTime}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatTime(row.actualCheckOut)}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {row.minutesEarly > 0 ? (
                         <span className="text-orange-600 font-semibold">{row.minutesEarly} min</span>
+                      ) : (
+                        <span className="text-gray-500">0 min</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {toOvertimeMinutes(row) > 0 ? (
+                        <span className="text-blue-600 font-semibold">{formatOvertimeDisplay(row)}</span>
                       ) : (
                         <span className="text-gray-500">0 min</span>
                       )}

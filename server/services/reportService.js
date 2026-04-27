@@ -10,6 +10,7 @@ const ProductionOrder = require('../models/ProductionOrder');
 const Complaint = require('../models/Complaint');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
+const { calculateAttendanceMetrics } = require('../utils/attendanceMetrics');
 const {
   isLowStockForReorder,
   lowStockRawMaterialMongoFilter
@@ -1013,24 +1014,32 @@ class ReportService {
               absent: 0,
               late: 0,
               onLeave: 0,
+              totalMinutes: 0,
               totalHours: 0
             });
           }
           const deptStats = deptAttendanceMap.get(dept);
           deptStats[record.status] = (deptStats[record.status] || 0) + 1;
-          if (record.workingHours) {
-            deptStats.totalHours += record.workingHours;
-          }
+          const metrics = calculateAttendanceMetrics({
+            checkIn: record.checkIn,
+            checkOut: record.checkOut,
+            attendanceDate: record.date
+          });
+          deptStats.totalMinutes += metrics.workingMinutes;
         }
       });
 
-      const departmentAttendance = Array.from(deptAttendanceMap.entries()).map(([dept, stats]) => ({
-        department: dept,
-        ...stats,
-        attendanceRate: stats.present > 0 
-          ? (stats.present / (stats.present + stats.absent)) * 100 
-          : 0
-      }));
+      const departmentAttendance = Array.from(deptAttendanceMap.entries()).map(([dept, stats]) => {
+        const totalHours = stats.totalMinutes / 60;
+        return {
+          department: dept,
+          ...stats,
+          totalHours,
+          attendanceRate: stats.present > 0
+            ? (stats.present / (stats.present + stats.absent)) * 100
+            : 0
+        };
+      });
 
       // New hires in period
       const newHires = employees.filter(emp => {

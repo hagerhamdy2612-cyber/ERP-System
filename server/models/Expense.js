@@ -20,15 +20,48 @@ const expenseSchema = new mongoose.Schema({
     required: [true, 'Category is required'],
     trim: true
   },
+  source: {
+    type: String,
+    enum: ['Manual', 'Payroll'],
+    default: 'Manual'
+  },
+  employee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: null
+  },
+  employeeId: {
+    type: String,
+    trim: true
+  },
+  type: {
+    type: String,
+    trim: true,
+    default: 'General'
+  },
+  status: {
+    type: String,
+    enum: ['Pending Payment', 'Paid'],
+    default: 'Paid'
+  },
+  referencePayrollId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PayrollRecord',
+    default: null
+  },
   bankAccount: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'BankAccount',
-    required: [true, 'Bank account is required']
+    required: function requiresBankAccount() {
+      return this.status !== 'Pending Payment';
+    }
   },
   transaction: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Transaction',
-    required: true
+    required: function requiresTransaction() {
+      return this.status !== 'Pending Payment';
+    }
   },
   date: {
     type: Date,
@@ -47,6 +80,7 @@ const expenseSchema = new mongoose.Schema({
 expenseSchema.index({ bankAccount: 1, date: -1 });
 expenseSchema.index({ category: 1 });
 expenseSchema.index({ date: -1 });
+expenseSchema.index({ referencePayrollId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Expense', expenseSchema);
 

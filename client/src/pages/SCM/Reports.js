@@ -10,7 +10,6 @@ import {
   Download,
   Filter,
   RefreshCw,
-  Mail,
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
@@ -28,7 +27,6 @@ const SCMReports = () => {
     topSuppliers: null,
     ratingDistribution: null
   });
-  const [sendLoading, setSendLoading] = useState(false);
 
   useEffect(() => {
     fetchReport();
@@ -75,35 +73,6 @@ const SCMReports = () => {
     }
   };
 
-  const sendReport = async () => {
-    setSendLoading(true);
-    try {
-      const reportData = [
-        {
-          'Total Suppliers': reports.summary?.totalSuppliers || 0,
-          'Active Suppliers': reports.summary?.activeSuppliers || 0,
-          'Total Orders': reports.summary?.totalOrders || 0,
-          'Period': `${dateRange.startDate} to ${dateRange.endDate}`
-        }
-      ];
-
-      const response = await axios.post('/api/reports/send', {
-        module: 'scm',
-        reportData: reportData
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message || t('scm.reports.messages.sendSuccess'));
-      } else {
-        toast.error(response.data.message || t('scm.reports.errors.sendFailed'));
-      }
-    } catch (error) {
-      console.error('Send report error:', error);
-      toast.error(t('scm.reports.errors.sendFailed'));
-    } finally {
-      setSendLoading(false);
-    }
-  };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
     <Card className="dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900">
@@ -157,14 +126,6 @@ const SCMReports = () => {
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('scm.reports.refresh')}
-          </button>
-          <button
-            onClick={sendReport}
-            disabled={sendLoading}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? t('scm.reports.sending') : t('scm.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}

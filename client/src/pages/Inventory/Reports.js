@@ -10,7 +10,6 @@ import {
   Download,
   Filter,
   RefreshCw,
-  Mail,
   DollarSign,
   Layers
 } from 'lucide-react';
@@ -30,7 +29,6 @@ const InventoryReports = () => {
     topProductsByValue: null,
     allProducts: null
   });
-  const [sendLoading, setSendLoading] = useState(false);
 
   useEffect(() => {
     fetchReport();
@@ -77,35 +75,6 @@ const InventoryReports = () => {
     }
   };
 
-  const sendReport = async () => {
-    setSendLoading(true);
-    try {
-      const reportData = [
-        {
-          'Total Products': reports.summary?.totalProducts || 0,
-          'Total Inventory Value': `$${reports.summary?.totalInventoryValue?.toLocaleString() || 0}`,
-          'Low Stock Items': reports.summary?.lowStockCount || 0,
-          'Period': `${dateRange.startDate} to ${dateRange.endDate}`
-        }
-      ];
-
-      const response = await axios.post('/api/reports/send', {
-        module: 'inventory',
-        reportData: reportData
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message || t('inventory.reports.messages.sendSuccess'));
-      } else {
-        toast.error(response.data.message || t('inventory.reports.errors.sendFailed'));
-      }
-    } catch (error) {
-      console.error('Send report error:', error);
-      toast.error(t('inventory.reports.errors.sendFailed'));
-    } finally {
-      setSendLoading(false);
-    }
-  };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
     <Card className="dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900">
@@ -153,14 +122,6 @@ const InventoryReports = () => {
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('inventory.reports.refresh')}
-          </button>
-          <button
-            onClick={sendReport}
-            disabled={sendLoading}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? t('inventory.reports.sending') : t('inventory.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}

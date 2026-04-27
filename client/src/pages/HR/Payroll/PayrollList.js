@@ -4,7 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../../components/Card';
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Eye, CheckCircle2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const STATUS_OPTIONS = ['draft', 'approved', 'paid'];
 
@@ -28,7 +28,7 @@ const PayrollList = () => {
     periodYear: new Date().getFullYear().toString(),
     periodMonth: '',
     status: '',
-    userId: ''
+    employeeId: ''
   });
 
   const limit = 20;
@@ -49,7 +49,7 @@ const PayrollList = () => {
       if (filters.periodYear) params.periodYear = filters.periodYear;
       if (filters.periodMonth) params.periodMonth = filters.periodMonth;
       if (filters.status) params.status = filters.status;
-      if (filters.userId) params.userId = filters.userId;
+      if (filters.employeeId) params.employeeId = filters.employeeId;
 
       const res = await axios.get('/api/hr/payroll', { params });
       setRows(res.data.data || []);
@@ -59,7 +59,7 @@ const PayrollList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, filters.periodYear, filters.periodMonth, filters.status, filters.userId, t]);
+  }, [page, limit, filters.periodYear, filters.periodMonth, filters.status, filters.employeeId, t]);
 
   useEffect(() => {
     fetchEmployees();
@@ -71,13 +71,35 @@ const PayrollList = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [filters.periodYear, filters.periodMonth, filters.status, filters.userId]);
+  }, [filters.periodYear, filters.periodMonth, filters.status, filters.employeeId]);
 
-  const handleDelete = async (recId) => {
-    if (!window.confirm(t('hr.payroll.deleteConfirm'))) return;
+  const handleApprove = async (recId) => {
     try {
-      await axios.delete(`/api/hr/payroll/${recId}`);
-      toast.success(t('messages.deleteSuccess'));
+      await axios.patch(`/api/hr/payroll/approve/${recId}`);
+      toast.success('Payroll approved');
+      fetchPayroll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('messages.error'));
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const confirmed = window.confirm(
+      'Delete payroll records using current filters? This action cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const params = {};
+      if (filters.periodYear) params.periodYear = filters.periodYear;
+      if (filters.periodMonth) params.periodMonth = filters.periodMonth;
+      if (filters.status) params.status = filters.status;
+      if (filters.employeeId) params.employeeId = filters.employeeId;
+
+      const res = await axios.delete('/api/hr/payroll', { params });
+      toast.success(
+        `Deleted ${res.data.deletedCount || 0} payroll, ${res.data.deletedExpenseCount || 0} finance expense, ${res.data.deletedTransactionCount || 0} transaction record(s)`
+      );
       fetchPayroll();
     } catch (err) {
       toast.error(err.response?.data?.message || t('messages.error'));
@@ -101,13 +123,23 @@ const PayrollList = () => {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('hr.payroll.title')}</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{t('hr.payroll.subtitle')}</p>
         </div>
-        <Link
-          to="/app/hr/payroll/new"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          {t('hr.payroll.addRecord')}
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDeleteAll}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete All
+          </button>
+          <Link
+            to="/app/hr/payroll/new"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            Generate Payroll
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -145,8 +177,8 @@ const PayrollList = () => {
           </select>
           <select
             className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            value={filters.userId}
-            onChange={(e) => setFilters((f) => ({ ...f, userId: e.target.value }))}
+            value={filters.employeeId}
+            onChange={(e) => setFilters((f) => ({ ...f, employeeId: e.target.value }))}
           >
             <option value="">{t('hr.payroll.allEmployees')}</option>
             {employees.map((e) => (
@@ -166,6 +198,7 @@ const PayrollList = () => {
                 <th className="py-3 pr-4 font-medium">{t('hr.payroll.colBase')}</th>
                 <th className="py-3 pr-4 font-medium">{t('hr.payroll.colBonuses')}</th>
                 <th className="py-3 pr-4 font-medium">{t('hr.payroll.colDeductions')}</th>
+                <th className="py-3 pr-4 font-medium">Overtime</th>
                 <th className="py-3 pr-4 font-medium">{t('hr.payroll.colNet')}</th>
                 <th className="py-3 pr-4 font-medium">{t('hr.payroll.colStatus')}</th>
                 <th className="py-3 pr-4 font-medium">{t('hr.payroll.colFinance')}</th>
@@ -175,13 +208,13 @@ const PayrollList = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-500">
+                  <td colSpan={10} className="py-8 text-center text-gray-500">
                     {t('common.loading')}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-500">
+                  <td colSpan={10} className="py-8 text-center text-gray-500">
                     {t('hr.payroll.noRecords')}
                   </td>
                 </tr>
@@ -196,16 +229,19 @@ const PayrollList = () => {
                       {formatPeriod(row.periodYear, row.periodMonth)}
                     </td>
                     <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
-                      {row.basePay?.toFixed?.(2) ?? row.basePay}
+                      {(row.baseSalary ?? row.basePay)?.toFixed?.(2) ?? (row.baseSalary ?? row.basePay)}
                     </td>
                     <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
-                      {row.bonuses?.toFixed?.(2) ?? row.bonuses}
+                      {row.bonus?.toFixed?.(2) ?? row.bonus ?? row.bonuses?.toFixed?.(2) ?? row.bonuses}
                     </td>
                     <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
-                      {row.deductions?.toFixed?.(2) ?? row.deductions}
+                      {row.totalDeductions?.toFixed?.(2) ?? row.totalDeductions ?? row.deductions?.toFixed?.(2) ?? row.deductions}
+                    </td>
+                    <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
+                      {row.overtimePay?.toFixed?.(2) ?? row.overtimePay ?? '0.00'}
                     </td>
                     <td className="py-3 pr-4 text-gray-900 dark:text-white font-medium">
-                      {row.netPay?.toFixed?.(2) ?? row.netPay}
+                      {row.netSalary?.toFixed?.(2) ?? row.netSalary ?? row.netPay?.toFixed?.(2) ?? row.netPay}
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${statusClass(row.status)}`}>
@@ -213,8 +249,8 @@ const PayrollList = () => {
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-gray-700 dark:text-gray-300 text-xs">
-                      {row.financeExpense?.bankAccount?.name ? (
-                        <span title={row.financeExpense?.title}>{row.financeExpense.bankAccount.name}</span>
+                      {row.financeExpense?.status ? (
+                        <span title={row.financeExpense?.title}>{row.financeExpense.status}</span>
                       ) : (
                         '—'
                       )}
@@ -224,17 +260,19 @@ const PayrollList = () => {
                         to={`/app/hr/payroll/${row._id}`}
                         className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
-                        {t('hr.payroll.edit')}
+                        <Eye className="h-3.5 w-3.5" />
+                        View
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(row._id)}
-                        className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium hover:underline ml-2"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        {t('hr.payroll.delete')}
-                      </button>
+                      {row.status === 'draft' && (
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(row._id)}
+                          className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-medium hover:underline ml-2"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Approve
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

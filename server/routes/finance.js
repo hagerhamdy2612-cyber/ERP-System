@@ -262,21 +262,29 @@ router.post('/pay-invoice', [
 router.get('/payroll/unpaid', protect, authorize('admin', 'manager'), async (req, res) => {
   try {
     const rows = await PayrollRecord.find({
-      status: 'approved',
-      financeExpense: null
+      status: 'approved'
     })
       .populate({
         path: 'employee',
         select: 'employeeId user',
         populate: { path: 'user', select: 'name email' }
       })
+      .populate({
+        path: 'financeExpense',
+        select: 'status amount employeeId source type referencePayrollId'
+      })
       .sort({ periodYear: -1, periodMonth: -1, createdAt: -1 })
       .lean();
 
+    const unpaidRows = rows.filter((row) => {
+      if (!row.financeExpense) return true;
+      return row.financeExpense.status !== 'Paid';
+    });
+
     res.json({
       success: true,
-      count: rows.length,
-      data: rows
+      count: unpaidRows.length,
+      data: unpaidRows
     });
   } catch (error) {
     console.error('Get unpaid payroll error:', error);
@@ -325,13 +333,6 @@ router.post(
         });
       }
 
-      if (payroll.financeExpense) {
-        return res.status(400).json({
-          success: false,
-          message: 'This payroll record was already paid from Finance.'
-        });
-      }
-
       if (payroll.status !== 'approved') {
         return res.status(400).json({
           success: false,
@@ -339,25 +340,37 @@ router.post(
         });
       }
 
-      if ((payroll.netPay || 0) <= 0) {
+      const payableAmount = Number(payroll.netSalary ?? payroll.netPay ?? 0);
+      if (payableAmount <= 0) {
         return res.status(400).json({
           success: false,
           message: 'Net pay must be greater than 0.'
         });
       }
 
+      if (payroll.financeExpense) {
+        const linkedExpense = await Expense.findById(payroll.financeExpense).select('status');
+        if (linkedExpense?.status === 'Paid') {
+          return res.status(400).json({
+            success: false,
+            message: 'This payroll record was already paid from Finance.'
+          });
+        }
+      }
+
       const paymentDate = req.body.paymentDate ? new Date(req.body.paymentDate) : new Date();
       const employeeName = payroll.employee?.user?.name || payroll.employee?.employeeId || 'Employee';
 
       const { expense, transaction } = await recordPayrollExpense({
-        netPay: payroll.netPay,
+        netPay: payableAmount,
         payrollRecordId: payroll._id,
         employeeDisplayName: employeeName,
         periodYear: payroll.periodYear,
         periodMonth: payroll.periodMonth,
         bankAccountId: req.body.bankAccountId,
         paymentDate,
-        notes: req.body.notes || payroll.notes
+        notes: req.body.notes || payroll.notes,
+        existingExpenseId: payroll.financeExpense || null
       });
 
       payroll.status = 'paid';

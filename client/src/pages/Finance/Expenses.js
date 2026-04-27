@@ -186,7 +186,7 @@ const FinanceExpenses = () => {
                       })}
                     </td>
                     <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900 dark:text-white">
-                      {Number(row.netPay || 0).toLocaleString(undefined, {
+                      {Number(row.netSalary ?? row.netPay ?? 0).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}{' '}
@@ -457,7 +457,7 @@ const FinanceExpenses = () => {
             <div className="space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {selectedPayroll.employee?.user?.name || selectedPayroll.employee?.employeeId || t('common.unknown')} —{' '}
-                {Number(selectedPayroll.netPay || 0).toLocaleString(undefined, {
+                {Number(selectedPayroll.netSalary ?? selectedPayroll.netPay ?? 0).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2
                 })}{' '}

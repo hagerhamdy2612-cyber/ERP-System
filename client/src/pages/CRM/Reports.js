@@ -10,7 +10,6 @@ import {
   Download,
   Filter,
   RefreshCw,
-  Mail,
   AlertCircle,
   UserPlus
 } from 'lucide-react';
@@ -28,7 +27,6 @@ const CRMReports = () => {
     complaintStats: null,
     customerTypeDistribution: null
   });
-  const [sendLoading, setSendLoading] = useState(false);
 
   useEffect(() => {
     fetchReport();
@@ -75,35 +73,6 @@ const CRMReports = () => {
     }
   };
 
-  const sendReport = async () => {
-    setSendLoading(true);
-    try {
-      const reportData = [
-        {
-          'Total Customers': reports.summary?.totalCustomers || 0,
-          'Active Customers': reports.summary?.activeCustomers || 0,
-          'Total Complaints': reports.summary?.totalComplaints || 0,
-          'Period': `${dateRange.startDate} to ${dateRange.endDate}`
-        }
-      ];
-
-      const response = await axios.post('/api/reports/send', {
-        module: 'crm',
-        reportData: reportData
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message || t('crm.reports.messages.sendSuccess'));
-      } else {
-        toast.error(response.data.message || t('crm.reports.errors.sendFailed'));
-      }
-    } catch (error) {
-      console.error('Send report error:', error);
-      toast.error(t('crm.reports.errors.sendFailed'));
-    } finally {
-      setSendLoading(false);
-    }
-  };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
     <Card className="dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900">
@@ -151,14 +120,6 @@ const CRMReports = () => {
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('crm.reports.refresh')}
-          </button>
-          <button
-            onClick={sendReport}
-            disabled={sendLoading}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? t('crm.reports.sending') : t('crm.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}

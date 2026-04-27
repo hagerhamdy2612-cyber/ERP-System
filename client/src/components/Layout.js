@@ -45,26 +45,12 @@ const Layout = () => {
 
   // Define all possible navigation items
   const allNavigation = [
-    ...(user?.role === 'admin' ? [
-      {
-        name: 'Main Dashboard',
-        href: '/app/dashboard',
-        icon: Home,
-        module: 'dashboard'
-      },
-      {
-        name: 'Activity Log',
-        href: '/app/admin/activity-log',
-        icon: ClipboardList,
-        module: 'dashboard'
-      },
-      {
-        name: 'Archive',
-        href: '/app/admin/archive',
-        icon: Archive,
-        module: 'archive'
-      }
-    ] : []),
+    ...(user?.role === 'admin' ? [{
+      name: 'Main Dashboard',
+      href: '/app/dashboard',
+      icon: Home,
+      module: 'dashboard'
+    }] : []),
     { 
       name: 'HR', 
       href: '/app/hr/dashboard', 
@@ -80,18 +66,6 @@ const Layout = () => {
       ]
     },
     { 
-      name: 'Manufacturing', 
-      href: '/app/manufacturing/dashboard', 
-      icon: Factory, 
-      module: 'manufacturing',
-      children: [
-        { name: 'Dashboard', href: '/app/manufacturing/dashboard' },
-        { name: 'Orders', href: '/app/manufacturing/orders' },
-        { name: 'Reports', href: '/app/manufacturing/reports' },
-        { name: 'Attendance', href: '/app/manufacturing/attendance' }
-      ]
-    },
-    { 
       name: 'SCM', 
       href: '/app/scm/dashboard', 
       icon: Truck, 
@@ -101,31 +75,6 @@ const Layout = () => {
         { name: 'Suppliers', href: '/app/scm/suppliers' },
         { name: 'Reports', href: '/app/scm/reports' },
         { name: 'Attendance', href: '/app/scm/attendance' }
-      ]
-    },
-    { 
-      name: 'CRM', 
-      href: '/app/crm/dashboard', 
-      icon: UserCheck, 
-      module: 'crm',
-      children: [
-        { name: 'Dashboard', href: '/app/crm/dashboard' },
-        { name: 'Customers', href: '/app/crm/customers' },
-        { name: 'Complaints', href: '/app/crm/complaints' },
-        { name: 'Reports', href: '/app/crm/reports' },
-        { name: 'Attendance', href: '/app/crm/attendance' }
-      ]
-    },
-    { 
-      name: 'Sales', 
-      href: '/app/sales/dashboard', 
-      icon: ShoppingCart, 
-      module: 'sales',
-      children: [
-        { name: 'Dashboard', href: '/app/sales/dashboard' },
-        { name: 'Orders', href: '/app/sales/orders' },
-        { name: 'Reports', href: '/app/sales/reports' },
-        { name: 'Attendance', href: '/app/sales/attendance' }
       ]
     },
     { 
@@ -153,6 +102,43 @@ const Layout = () => {
         { name: 'Attendance', href: '/app/purchasing/attendance' }
       ]
     },
+    { 
+      name: 'Manufacturing', 
+      href: '/app/manufacturing/dashboard', 
+      icon: Factory, 
+      module: 'manufacturing',
+      children: [
+        { name: 'Dashboard', href: '/app/manufacturing/dashboard' },
+        { name: 'Orders', href: '/app/manufacturing/orders' },
+        { name: 'Reports', href: '/app/manufacturing/reports' },
+        { name: 'Attendance', href: '/app/manufacturing/attendance' }
+      ]
+    },
+    { 
+      name: 'CRM', 
+      href: '/app/crm/dashboard', 
+      icon: UserCheck, 
+      module: 'crm',
+      children: [
+        { name: 'Dashboard', href: '/app/crm/dashboard' },
+        { name: 'Customers', href: '/app/crm/customers' },
+        { name: 'Complaints', href: '/app/crm/complaints' },
+        { name: 'Reports', href: '/app/crm/reports' },
+        { name: 'Attendance', href: '/app/crm/attendance' }
+      ]
+    },
+    { 
+      name: 'Sales', 
+      href: '/app/sales/dashboard', 
+      icon: ShoppingCart, 
+      module: 'sales',
+      children: [
+        { name: 'Dashboard', href: '/app/sales/dashboard' },
+        { name: 'Orders', href: '/app/sales/orders' },
+        { name: 'Reports', href: '/app/sales/reports' },
+        { name: 'Attendance', href: '/app/sales/attendance' }
+      ]
+    },
     {
       name: 'Finance',
       href: '/app/finance/dashboard',
@@ -166,7 +152,21 @@ const Layout = () => {
         { name: 'Attendance', href: '/app/finance/attendance' },
         { name: 'Manage Accounts', href: '/app/finance/bank-accounts', financeBankAccess: true }
       ]
-    }
+    },
+    ...(user?.role === 'admin' ? [
+      {
+        name: 'Activity Log',
+        href: '/app/admin/activity-log',
+        icon: ClipboardList,
+        module: 'dashboard'
+      },
+      {
+        name: 'Archive',
+        href: '/app/admin/archive',
+        icon: Archive,
+        module: 'archive'
+      }
+    ] : [])
   ];
 
   // Filter navigation based on user permissions

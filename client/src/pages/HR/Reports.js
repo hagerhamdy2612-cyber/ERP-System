@@ -10,7 +10,6 @@ import {
   Download,
   Filter,
   RefreshCw,
-  Mail,
   Building,
   DollarSign
 } from 'lucide-react';
@@ -29,7 +28,6 @@ const HRReports = () => {
     departmentAttendance: null,
     averageSalaryByDept: null
   });
-  const [sendLoading, setSendLoading] = useState(false);
 
   useEffect(() => {
     fetchReport();
@@ -76,35 +74,6 @@ const HRReports = () => {
     }
   };
 
-  const sendReport = async () => {
-    setSendLoading(true);
-    try {
-      const reportData = [
-        {
-          'Total Employees': reports.summary?.totalEmployees || 0,
-          'Active Employees': reports.summary?.activeEmployees || 0,
-          'New Hires': reports.summary?.newHires || 0,
-          'Period': `${dateRange.startDate} to ${dateRange.endDate}`
-        }
-      ];
-
-      const response = await axios.post('/api/reports/send', {
-        module: 'hr',
-        reportData: reportData
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message || t('hr.reports.messages.sendSuccess'));
-      } else {
-        toast.error(response.data.message || t('hr.reports.errors.sendFailed'));
-      }
-    } catch (error) {
-      console.error('Send report error:', error);
-      toast.error(t('hr.reports.errors.sendFailed'));
-    } finally {
-      setSendLoading(false);
-    }
-  };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
     <Card className="dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900">
@@ -152,14 +121,6 @@ const HRReports = () => {
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('hr.reports.refresh')}
-          </button>
-          <button
-            onClick={sendReport}
-            disabled={sendLoading}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 transition-colors"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            {sendLoading ? t('hr.reports.sending') : t('hr.reports.sendReport')}
           </button>
           <button
             onClick={exportReport}

@@ -39,6 +39,81 @@ const payrollRecordSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    baseSalary: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    workingDaysOfMonth: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    dailySalary: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    hourlyRate: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    absentDays: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    absenceDeduction: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    totalLateMinutes: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    lateHours: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    lateDeduction: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    overtimeHours: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    overtimePay: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    totalSales: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    bonus: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    netSalary: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    totalDeductions: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
     status: {
       type: String,
       enum: ['draft', 'approved', 'paid'],

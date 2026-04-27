@@ -1,4 +1,16 @@
 const mongoose = require('mongoose');
+const { calculateAttendanceMetrics } = require('../utils/attendanceMetrics');
+
+function applyAttendanceMetrics(record) {
+  const metrics = calculateAttendanceMetrics({
+    checkIn: record.checkIn,
+    checkOut: record.checkOut,
+    attendanceDate: record.date
+  });
+  // Stored values are derived snapshots only; all logic must use checkIn/checkOut.
+  record.workingHours = metrics.workingHoursDecimal;
+  record.overtime = metrics.overtimeHoursDecimal;
+}
 
 const attendanceSchema = new mongoose.Schema({
   employee: {
@@ -38,20 +50,14 @@ const attendanceSchema = new mongoose.Schema({
 
 // Calculate working hours before saving
 attendanceSchema.pre('save', function(next) {
-  if (this.checkIn && this.checkOut) {
-    const diffInMs = this.checkOut - this.checkIn;
-    this.workingHours = Math.round((diffInMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
-    
-    // Calculate overtime (assuming 8 hours is standard)
-    if (this.workingHours > 8) {
-      this.overtime = Math.round((this.workingHours - 8) * 100) / 100; // Round to 2 decimal places
-    } else {
-      this.overtime = 0;
-    }
-  } else if (this.isModified('checkOut') && !this.checkOut) {
-    // If checkout is removed, reset working hours and overtime
-    this.workingHours = 0;
-    this.overtime = 0;
+  applyAttendanceMetrics(this);
+  next();
+});
+
+// Keep workingHours/overtime accurate for bulk inserts too.
+attendanceSchema.pre('insertMany', function(next, docs) {
+  for (const doc of docs) {
+    applyAttendanceMetrics(doc);
   }
   next();
 });
