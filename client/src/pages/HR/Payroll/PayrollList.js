@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../../components/Card';
-import { Plus, Eye, CheckCircle2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Eye, CheckCircle2, Trash2, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw } from 'lucide-react';
 
 const STATUS_OPTIONS = ['draft', 'approved', 'paid'];
 
 function statusClass(s) {
   const map = {
     draft: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    needs_review: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
     approved: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
     paid: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
   };
@@ -19,6 +20,7 @@ function statusClass(s) {
 
 const PayrollList = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,16 @@ const PayrollList = () => {
     }
   };
 
+  const handleRecalculate = async (recId) => {
+    try {
+      await axios.patch(`/api/hr/payroll/recalculate/${recId}`);
+      toast.success(t('hr.payroll.recalculated'));
+      fetchPayroll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('messages.error'));
+    }
+  };
+
   const handleDeleteAll = async () => {
     const confirmed = window.confirm(
       'Delete payroll records using current filters? This action cannot be undone.'
@@ -116,6 +128,20 @@ const PayrollList = () => {
 
   const empName = (row) => row.employee?.user?.name || '—';
 
+  const reviewMessage = t('hr.payroll.attendanceReviewWarning');
+  const hasReviewRows = rows.some((row) => row.requiresAttendanceReview);
+  const goToAttendanceReview = (row) => {
+    const employeeId = row.employee?._id || row.employee;
+    const params = new URLSearchParams({
+      attendanceReview: '1',
+      payrollId: row._id,
+      periodYear: String(row.periodYear),
+      periodMonth: String(row.periodMonth)
+    });
+    if (employeeId) params.set('employee', employeeId);
+    navigate(`/app/hr/attendance?${params.toString()}`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -143,6 +169,12 @@ const PayrollList = () => {
       </div>
 
       <Card>
+        {hasReviewRows && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700/60 dark:bg-amber-900/30">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">{reviewMessage}</p>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <input
             type="number"
@@ -224,7 +256,18 @@ const PayrollList = () => {
                     key={row._id}
                     className="border-b border-gray-100 dark:border-gray-700/80 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
-                    <td className="py-3 pr-4 text-gray-900 dark:text-white font-medium">{empName(row)}</td>
+                    <td className="py-3 pr-4 text-gray-900 dark:text-white font-medium">
+                      <span>{empName(row)}</span>
+                      {row.requiresAttendanceReview && (
+                        <span
+                          title={reviewMessage}
+                          className="ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          {t('hr.payroll.needsReview')}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-gray-700 dark:text-gray-300">
                       {formatPeriod(row.periodYear, row.periodMonth)}
                     </td>
@@ -263,15 +306,46 @@ const PayrollList = () => {
                         <Eye className="h-3.5 w-3.5" />
                         View
                       </Link>
-                      {row.status === 'draft' && (
-                        <button
-                          type="button"
-                          onClick={() => handleApprove(row._id)}
-                          className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-medium hover:underline ml-2"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Approve
-                        </button>
+                      {(row.status === 'draft' || row.status === 'needs_review') && (
+                        <>
+                          {(row.requiresAttendanceReview || row.status === 'needs_review') && (
+                            <span
+                              title={reviewMessage}
+                              className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-medium ml-2"
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              {t('hr.payroll.needsReview')}
+                            </span>
+                          )}
+                          {(row.requiresAttendanceReview || row.status === 'needs_review') ? (
+                            <button
+                              type="button"
+                              onClick={() => goToAttendanceReview(row)}
+                              className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline ml-2"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              {t('hr.payroll.recalculate')}
+                            </button>
+                          ) : row.requiresRegeneration ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRecalculate(row._id)}
+                              className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs font-medium hover:underline ml-2"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              {t('hr.payroll.recalculate')}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(row._id)}
+                              className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-medium hover:underline ml-2"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Approve
+                            </button>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>

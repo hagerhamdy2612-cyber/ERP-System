@@ -6,7 +6,6 @@ import Card from '../../components/Card';
 import {
   ShoppingCart,
   CheckCircle,
-  Truck,
   Package,
   Users,
   AlertCircle
@@ -40,54 +39,52 @@ const SalesChartTooltip = ({ active, payload }) => {
   const accent = isDark ? '#34d399' : '#059669';
   return (
     <div style={chartTooltipStyle}>
-      <p style={{ fontWeight: 600 }}>{p.orderNumber}</p>
+      <p style={{ fontWeight: 600 }}>{p.fullDate}</p>
       <p style={{ marginTop: 6, color: muted, fontSize: 12 }}>
-        {t('sales.dashboard.tooltipDelivery')}: {p.deliveryLabel}
-        {p.usedOrderDate ? ` ${t('sales.dashboard.tooltipNoDeliveryDate')}` : ''}
+        {t('sales.dashboard.tooltipOrders')}: {p.orders}
       </p>
-      <p style={{ color: muted, fontSize: 12 }}>{t('sales.dashboard.tooltipCustomer')}: {p.customerName}</p>
       <p style={{ marginTop: 6, fontWeight: 600, color: accent }}>
-        {t('sales.dashboard.tooltipOrderTotal')}: ${Number(p.revenue).toLocaleString(locale)}
+        {t('sales.dashboard.tooltipRevenue')}: ${Number(p.revenue).toLocaleString(locale)}
       </p>
     </div>
   );
 };
 
+// Professional revenue trend: aggregate confirmed/delivered orders by their
+// ORDER date (grouped per day) and sum each day's revenue.
+const REVENUE_STATUSES = ['confirmed', 'delivered'];
+
 const buildSalesRevenueChartData = (orders, locale) => {
-  const getSortTime = (o) => {
-    const raw = o.deliveryDate || o.orderDate;
-    const time = new Date(raw);
-    return Number.isNaN(time.getTime()) ? 0 : time.getTime();
-  };
+  const byDay = new Map();
 
-  const chartOrders = orders
-    .filter((o) => o.status !== 'cancelled')
-    .sort((a, b) => getSortTime(a) - getSortTime(b));
+  orders
+    .filter((o) => REVENUE_STATUSES.includes(o.status))
+    .forEach((order) => {
+      const d = new Date(order.orderDate);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const entry = byDay.get(key) || { revenue: 0, orders: 0, time: d.getTime() };
+      entry.revenue += order.total || 0;
+      entry.orders += 1;
+      byDay.set(key, entry);
+    });
 
-  return chartOrders.map((order) => {
-    const delivery = order.deliveryDate
-      ? new Date(order.deliveryDate)
-      : new Date(order.orderDate);
-    const deliveryStr = Number.isNaN(delivery.getTime())
-      ? '—'
-      : delivery.toLocaleDateString(locale, {
+  return Array.from(byDay.values())
+    .sort((a, b) => a.time - b.time)
+    .map((entry) => {
+      const day = new Date(entry.time);
+      return {
+        date: day.toLocaleDateString(locale, { month: 'short', day: 'numeric' }),
+        fullDate: day.toLocaleDateString(locale, {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
           year: 'numeric'
-        });
-    const shortDate = Number.isNaN(delivery.getTime())
-      ? '—'
-      : delivery.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-    return {
-      date: `${shortDate} · ${order.orderNumber}`,
-      revenue: order.total || 0,
-      orderNumber: order.orderNumber,
-      deliveryLabel: deliveryStr,
-      customerName: order.customer?.name || '—',
-      usedOrderDate: !order.deliveryDate
-    };
-  });
+        }),
+        revenue: entry.revenue,
+        orders: entry.orders
+      };
+    });
 };
 
 const SalesDashboard = () => {
@@ -121,11 +118,9 @@ const SalesDashboard = () => {
       const totalOrders = orders.length;
       const pendingOrders = orders.filter((o) => o.status === 'pending').length;
       const confirmedOrders = orders.filter((o) => o.status === 'confirmed').length;
-      const deliveredOrders = orders.filter(
-        (o) => o.status === 'delivered' || o.status === 'shipped'
-      ).length;
+      const deliveredOrders = orders.filter((o) => o.status === 'delivered').length;
       const totalRevenue = orders
-        .filter((o) => ['confirmed', 'shipped', 'delivered'].includes(o.status))
+        .filter((o) => REVENUE_STATUSES.includes(o.status))
         .reduce((sum, o) => sum + (o.total || 0), 0);
       const totalCustomers = customers.length;
 
@@ -158,7 +153,6 @@ const SalesDashboard = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'delivered': return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'shipped': return <Truck className="h-5 w-5 text-blue-500" />;
       case 'confirmed': return <Package className="h-5 w-5 text-purple-500" />;
       case 'pending': return <AlertCircle className="h-5 w-5 text-yellow-500" />;
       default: return <ShoppingCart className="h-5 w-5 text-gray-500" />;
@@ -168,7 +162,6 @@ const SalesDashboard = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'delivered': return 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-400';
-      case 'shipped': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-400';
       case 'confirmed': return 'bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-400';
       case 'pending': return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-400';
       default: return 'bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300';

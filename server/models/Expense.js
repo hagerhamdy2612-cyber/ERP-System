@@ -22,7 +22,7 @@ const expenseSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['Manual', 'Payroll'],
+    enum: ['Manual', 'Payroll', 'Manufacturing'],
     default: 'Manual'
   },
   employee: {
@@ -46,8 +46,11 @@ const expenseSchema = new mongoose.Schema({
   },
   referencePayrollId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'PayrollRecord',
-    default: null
+    ref: 'PayrollRecord'
+  },
+  referenceProductionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductionOrder'
   },
   bankAccount: {
     type: mongoose.Schema.Types.ObjectId,
@@ -80,7 +83,18 @@ const expenseSchema = new mongoose.Schema({
 expenseSchema.index({ bankAccount: 1, date: -1 });
 expenseSchema.index({ category: 1 });
 expenseSchema.index({ date: -1 });
-expenseSchema.index({ referencePayrollId: 1 }, { unique: true, sparse: true });
+// Partial filters so only real references are indexed (nulls/missing are excluded),
+// preventing duplicate-key errors on unrelated expenses.
+expenseSchema.index(
+  { referencePayrollId: 1 },
+  { unique: true, partialFilterExpression: { referencePayrollId: { $type: 'objectId' } } }
+);
+// Partial filter so only real production references are indexed (nulls/missing are
+// excluded), preventing duplicate-key errors on non-manufacturing expenses.
+expenseSchema.index(
+  { referenceProductionId: 1 },
+  { unique: true, partialFilterExpression: { referenceProductionId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Expense', expenseSchema);
 

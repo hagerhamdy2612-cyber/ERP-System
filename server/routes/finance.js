@@ -633,6 +633,101 @@ router.get('/expenses', protect, async (req, res) => {
 });
 
 /**
+ * @route   POST /api/finance/expenses/:id/pay
+ * @desc    Pay a pending expense from Finance
+ * @access  Private (Manager, Admin)
+ */
+router.post('/expenses/:id/pay', [
+  protect,
+  authorize('admin', 'manager'),
+  body('bankAccountId').isMongoId().withMessage('Valid bank account ID is required'),
+  body('paymentDate').optional().isISO8601().withMessage('Invalid payment date'),
+  body('notes').optional().isString()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return res.status(404).json({
+        success: false,
+        message: 'Expense not found'
+      });
+    }
+
+    if (expense.status === 'Paid') {
+      return res.status(400).json({
+        success: false,
+        message: 'This expense is already paid'
+      });
+    }
+
+    const bankAccount = await BankAccount.findById(req.body.bankAccountId);
+    if (!bankAccount) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bank account not found'
+      });
+    }
+
+    const amount = Number(expense.amount);
+    if (bankAccount.balance < amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient balance in bank account'
+      });
+    }
+
+    const payDate = req.body.paymentDate ? new Date(req.body.paymentDate) : new Date();
+    const noteText = req.body.notes || `Expense payment: ${expense.title}`;
+
+    const transaction = await Transaction.create({
+      sourceType: 'expense',
+      sourceId: expense._id,
+      sourceModel: 'Expense',
+      direction: 'out',
+      amount,
+      bankAccount: bankAccount._id,
+      date: payDate,
+      notes: noteText
+    });
+
+    expense.bankAccount = bankAccount._id;
+    expense.transaction = transaction._id;
+    expense.status = 'Paid';
+    expense.date = payDate;
+    expense.notes = noteText;
+    await expense.save();
+
+    bankAccount.balance -= amount;
+    await bankAccount.save();
+
+    const populatedExpense = await Expense.findById(expense._id)
+      .populate('bankAccount', 'name')
+      .populate('transaction', 'direction amount date');
+
+    res.json({
+      success: true,
+      message: 'Expense paid successfully',
+      data: populatedExpense
+    });
+  } catch (error) {
+    console.error('Pay expense error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+});
+
+/**
  * @route   GET /api/finance/bank-accounts
  * @desc    Get all bank accounts (Admin only)
  * @access  Private (Admin)

@@ -3,7 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
-import { Plus, ShoppingCart, CheckCircle, Truck, Package, Trash2, FileText, Printer, X, Pencil } from 'lucide-react';
+import { Plus, ShoppingCart, CheckCircle, Package, Trash2, FileText, Printer, X, Pencil } from 'lucide-react';
 
 const SalesOrders = () => {
   const { t } = useTranslation();
@@ -152,13 +152,13 @@ const SalesOrders = () => {
     }
   };
 
-  const handleShip = async (id) => {
+  const handleDeliver = async (id) => {
     try {
-      await axios.put(`/api/sales/orders/${id}/ship`);
-      toast.success(t('sales.messages.orderShipped'));
+      await axios.put(`/api/sales/orders/${id}/deliver`);
+      toast.success(t('sales.messages.orderDelivered'));
       fetchOrders();
     } catch (error) {
-      toast.error(error.response?.data?.message || t('sales.errors.shipFailed'));
+      toast.error(error.response?.data?.message || t('sales.errors.deliverFailed'));
     }
   };
 
@@ -222,7 +222,6 @@ const SalesOrders = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'delivered': return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'shipped': return <Truck className="h-5 w-5 text-blue-500" />;
       case 'confirmed': return <Package className="h-5 w-5 text-yellow-500" />;
       case 'in-production': return <Package className="h-5 w-5 text-orange-500" />;
       case 'pending': return <ShoppingCart className="h-5 w-5 text-gray-500" />;
@@ -233,7 +232,6 @@ const SalesOrders = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'delivered': return 'bg-green-100 text-green-800';
-      case 'shipped': return 'bg-blue-100 text-blue-800';
       case 'confirmed': return 'bg-yellow-100 text-yellow-800';
       case 'in-production': return 'bg-orange-100 text-orange-800';
       case 'pending': return 'bg-gray-100 text-gray-800';
@@ -346,11 +344,11 @@ const SalesOrders = () => {
                   )}
                   {order.status === 'confirmed' && (
                     <button
-                      onClick={() => handleShip(order._id)}
-                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
+                      onClick={() => handleDeliver(order._id)}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
                     >
-                      <Truck className="h-3 w-3 mr-1" />
-                      Ship
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {t('sales.actions.deliver', { defaultValue: 'Deliver' })}
                     </button>
                   )}
                   <button

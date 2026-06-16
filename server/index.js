@@ -7,6 +7,7 @@ const schedulerService = require('./services/schedulerService');
 
 // Load environment variables
 dotenv.config({ path: './config.env' });
+console.log("JWT_SECRET =", process.env.JWT_SECRET);
 
 const app = express();
 
@@ -43,6 +44,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/hr', require('./routes/hr'));
 app.use('/api/hr/payroll', require('./routes/payroll'));
+app.use('/api/payroll', require('./routes/payroll'));
 app.use('/api/manufacturing', require('./routes/manufacturing'));
 app.use('/api/scm', require('./routes/scm'));
 app.use('/api/crm', require('./routes/crm'));

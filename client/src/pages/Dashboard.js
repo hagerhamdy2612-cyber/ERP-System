@@ -91,28 +91,37 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      if (user?.role === 'admin') {
-        // Admin gets comprehensive data from all departments
-        const [kpisRes, activitiesRes, chartRes] = await Promise.all([
-          axios.get('/api/dashboard/kpis'),
-          axios.get('/api/dashboard/recent-activities'),
-          axios.get('/api/dashboard/sales-chart?period=month')
-        ]);
+      const isAdmin = user?.role === 'admin';
+      const dept = user?.department;
+      const kpisUrl = isAdmin ? '/api/dashboard/kpis' : `/api/dashboard/kpis?department=${dept}`;
+      const activitiesUrl = isAdmin
+        ? '/api/dashboard/recent-activities'
+        : `/api/dashboard/recent-activities?department=${dept}`;
+      const chartUrl = isAdmin
+        ? '/api/dashboard/sales-chart?period=year'
+        : `/api/dashboard/department-chart?department=${dept}&period=month`;
 
-        setKpis(kpisRes.data.data);
-        setRecentActivities(activitiesRes.data.data);
-        setDepartmentChart(chartRes.data.data);
+      // Use allSettled so one failing endpoint can't blank the entire dashboard.
+      const [kpisRes, activitiesRes, chartRes] = await Promise.allSettled([
+        axios.get(kpisUrl),
+        axios.get(activitiesUrl),
+        axios.get(chartUrl)
+      ]);
+
+      if (kpisRes.status === 'fulfilled') {
+        setKpis(kpisRes.value.data.data);
       } else {
-        // Managers get department-specific data
-        const [kpisRes, activitiesRes, chartRes] = await Promise.all([
-          axios.get(`/api/dashboard/kpis?department=${user?.department}`),
-          axios.get(`/api/dashboard/recent-activities?department=${user?.department}`),
-          axios.get(`/api/dashboard/department-chart?department=${user?.department}&period=month`)
-        ]);
-
-        setKpis(kpisRes.data.data);
-        setRecentActivities(activitiesRes.data.data);
-        setDepartmentChart(chartRes.data.data);
+        console.error('KPIs fetch error:', kpisRes.reason);
+      }
+      if (activitiesRes.status === 'fulfilled') {
+        setRecentActivities(activitiesRes.value.data.data);
+      } else {
+        console.error('Recent activities fetch error:', activitiesRes.reason);
+      }
+      if (chartRes.status === 'fulfilled') {
+        setDepartmentChart(chartRes.value.data.data);
+      } else {
+        console.error('Chart fetch error:', chartRes.reason);
       }
     } catch (error) {
       console.error('Dashboard data fetch error:', error);
@@ -202,21 +211,21 @@ const Dashboard = () => {
         return [
           {
             title: t('mainDashboard.kpis.totalRevenue'),
-            value: `$${((kpis?.revenue || 0)).toLocaleString()}`,
+            value: `$${((kpis?.sales?.monthlyRevenue || 0)).toLocaleString(locale)}`,
             icon: DollarSign,
             color: 'text-green-600',
             bgColor: 'bg-green-100'
           },
           {
             title: t('mainDashboard.kpis.ordersThisMonth'),
-            value: kpis?.orders || 0,
+            value: kpis?.sales?.monthlyOrders || 0,
             icon: ShoppingCart,
             color: 'text-blue-600',
             bgColor: 'bg-blue-100'
           },
           {
             title: t('mainDashboard.kpis.activeCustomers'),
-            value: kpis?.customers || 0,
+            value: kpis?.customers?.total || 0,
             icon: UserCheck,
             color: 'text-indigo-600',
             bgColor: 'bg-indigo-100'
@@ -224,7 +233,7 @@ const Dashboard = () => {
           {
             title: t('mainDashboard.kpis.topProduct'),
             value: kpis?.topProduct?.name || t('common.notApplicable'),
-            subtitle: kpis?.topProduct ? `${kpis.topProduct.quantity} ${t('mainDashboard.kpis.sold')}` : t('mainDashboard.kpis.noSalesData'),
+            subtitle: kpis?.topProduct ? `${kpis.topProduct.totalQuantity} ${t('mainDashboard.kpis.sold')}` : t('mainDashboard.kpis.noSalesData'),
             icon: Star,
             color: 'text-orange-600',
             bgColor: 'bg-orange-100'
@@ -235,28 +244,28 @@ const Dashboard = () => {
         return [
           {
             title: t('mainDashboard.kpis.totalSpending'),
-            value: `$${((kpis?.spending || 0)).toLocaleString(locale)}`,
+            value: `$${((kpis?.purchasing?.monthlySpending || 0)).toLocaleString(locale)}`,
             icon: DollarSign,
             color: 'text-purple-600',
             bgColor: 'bg-purple-100'
           },
           {
             title: t('mainDashboard.kpis.purchaseOrders'),
-            value: kpis?.orders || 0,
+            value: kpis?.purchasing?.totalOrders || 0,
             icon: ShoppingBag,
             color: 'text-blue-600',
             bgColor: 'bg-blue-100'
           },
           {
             title: t('mainDashboard.kpis.activeSuppliers'),
-            value: kpis?.suppliers || 0,
+            value: kpis?.suppliers?.total || 0,
             icon: Truck,
             color: 'text-indigo-600',
             bgColor: 'bg-indigo-100'
           },
           {
             title: t('mainDashboard.kpis.pendingOrders'),
-            value: kpis?.pending || 0,
+            value: kpis?.purchasing?.pending || 0,
             icon: Clock,
             color: 'text-yellow-600',
             bgColor: 'bg-yellow-100'
@@ -267,28 +276,28 @@ const Dashboard = () => {
         return [
           {
             title: t('mainDashboard.kpis.totalEmployees'),
-            value: kpis?.employees || 0,
+            value: kpis?.employees?.total || 0,
             icon: Users,
             color: 'text-blue-600',
             bgColor: 'bg-blue-100'
           },
           {
             title: t('mainDashboard.kpis.presentToday'),
-            value: kpis?.present || 0,
+            value: kpis?.employees?.presentToday || 0,
             icon: UserCheck,
             color: 'text-green-600',
             bgColor: 'bg-green-100'
           },
           {
             title: t('mainDashboard.kpis.absentToday'),
-            value: kpis?.absent || 0,
+            value: kpis?.employees?.absentToday || 0,
             icon: AlertTriangle,
             color: 'text-red-600',
             bgColor: 'bg-red-100'
           },
           {
             title: t('mainDashboard.kpis.newHiresThisMonth'),
-            value: kpis?.newHires || 0,
+            value: kpis?.employees?.newThisMonth || 0,
             icon: TrendingUp,
             color: 'text-purple-600',
             bgColor: 'bg-purple-100'
@@ -299,28 +308,28 @@ const Dashboard = () => {
         return [
           {
             title: t('mainDashboard.kpis.totalProducts'),
-            value: kpis?.products || 0,
+            value: kpis?.inventory?.totalProducts || 0,
             icon: Package,
             color: 'text-blue-600',
             bgColor: 'bg-blue-100'
           },
           {
             title: t('mainDashboard.kpis.lowStockItems'),
-            value: kpis?.lowStock || 0,
+            value: kpis?.inventory?.lowStockAlerts || 0,
             icon: AlertTriangle,
             color: 'text-red-600',
             bgColor: 'bg-red-100'
           },
           {
             title: t('mainDashboard.kpis.totalValue'),
-            value: `$${((kpis?.totalValue || 0)).toLocaleString(locale)}`,
+            value: `$${((kpis?.inventory?.totalValue || 0)).toLocaleString(locale)}`,
             icon: DollarSign,
             color: 'text-green-600',
             bgColor: 'bg-green-100'
           },
           {
             title: t('mainDashboard.kpis.recentMovements'),
-            value: kpis?.movements || 0,
+            value: kpis?.inventory?.recentMovements || 0,
             icon: TrendingUp,
             color: 'text-purple-600',
             bgColor: 'bg-purple-100'
@@ -331,28 +340,28 @@ const Dashboard = () => {
         return [
           {
             title: t('mainDashboard.kpis.productionOrders'),
-            value: kpis?.orders || 0,
+            value: kpis?.production?.totalOrders || 0,
             icon: Factory,
             color: 'text-blue-600',
             bgColor: 'bg-blue-100'
           },
           {
             title: t('mainDashboard.kpis.completedToday'),
-            value: kpis?.completed || 0,
+            value: kpis?.production?.completedToday || 0,
             icon: UserCheck,
             color: 'text-green-600',
             bgColor: 'bg-green-100'
           },
           {
             title: t('mainDashboard.kpis.inProgress'),
-            value: kpis?.inProgress || 0,
+            value: kpis?.production?.inProgress || 0,
             icon: Clock,
             color: 'text-yellow-600',
             bgColor: 'bg-yellow-100'
           },
           {
             title: t('mainDashboard.kpis.efficiencyRate'),
-            value: `${kpis?.efficiency || 0}%`,
+            value: `${kpis?.production?.efficiency || 0}%`,
             icon: TrendingUp,
             color: 'text-purple-600',
             bgColor: 'bg-purple-100'
@@ -398,7 +407,6 @@ const Dashboard = () => {
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       case 'in-progress': return 'text-blue-600 bg-blue-100';
       case 'confirmed': return 'text-green-600 bg-green-100';
-      case 'shipped': return 'text-blue-600 bg-blue-100';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
@@ -485,7 +493,9 @@ const Dashboard = () => {
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(value) =>
-                      new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+                      typeof value === 'string' && value.length === 7
+                        ? new Date(`${value}-01`).toLocaleDateString(locale, { month: 'short', year: '2-digit' })
+                        : new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
                     }
                   />
                   <YAxis 
@@ -504,7 +514,11 @@ const Dashboard = () => {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                       color: document.documentElement.classList.contains('dark') ? '#fff' : '#000'
                     }}
-                    labelFormatter={(value) => new Date(value).toLocaleDateString(locale)}
+                    labelFormatter={(value) =>
+                      typeof value === 'string' && value.length === 7
+                        ? new Date(`${value}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+                        : new Date(value).toLocaleDateString(locale)
+                    }
                   />
                   <Line 
                     type="monotone" 

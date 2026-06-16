@@ -66,7 +66,7 @@ class ReportService {
 
       // Get revenue data
       const revenueOrders = await SalesOrder.find({
-        status: { $in: ['confirmed', 'shipped', 'delivered'] },
+        status: { $in: ['confirmed', 'delivered'] },
         orderDate: { $gte: start, $lte: end }
       });
 

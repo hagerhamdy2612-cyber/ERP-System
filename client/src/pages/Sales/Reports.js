@@ -102,8 +102,8 @@ const SalesReports = () => {
       endDate.setHours(23, 59, 59, 999);
 
       const filteredOrders = allOrders.filter(order => {
-        // Filter by status (confirmed, shipped, delivered)
-        if (!['confirmed', 'shipped', 'delivered'].includes(order.status)) {
+        // Filter by status (confirmed, delivered)
+        if (!['confirmed', 'delivered'].includes(order.status)) {
           return false;
         }
 
@@ -421,7 +421,6 @@ const SalesReports = () => {
                   <div className="flex-shrink-0">
                     <div className={`w-3 h-3 rounded-full ${
                       status === 'delivered' ? 'bg-green-500' :
-                      status === 'shipped' ? 'bg-blue-500' :
                       status === 'confirmed' ? 'bg-yellow-500' :
                       'bg-gray-500'
                     }`}></div>

@@ -26,18 +26,18 @@ const SCMDashboard = () => {
     try {
       const suppliersRes = await axios.get('/api/scm/suppliers');
       const suppliers = suppliersRes.data.data || [];
-      
+
       // Calculate KPIs
       const totalSuppliers = suppliers.length;
       const activeSuppliers = suppliers.filter(s => s.isActive !== false).length;
-      
+
       // Get recent suppliers
       const sortedSuppliers = suppliers
         .sort((a, b) => new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id))
         .slice(0, 5);
-      
+
       setRecentSuppliers(sortedSuppliers);
-      
+
       setKpis({
         totalSuppliers,
         activeSuppliers

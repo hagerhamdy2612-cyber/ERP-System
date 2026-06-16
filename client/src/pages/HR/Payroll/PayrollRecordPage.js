@@ -4,7 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../../components/Card';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react';
 
 function money(v) {
   return Number(v || 0).toLocaleString(undefined, {
@@ -94,6 +94,33 @@ const PayrollRecordPage = () => {
     } finally {
       setApproving(false);
     }
+  };
+
+  const handleRecalculate = async () => {
+    if (!id) return;
+    setApproving(true);
+    try {
+      const res = await axios.patch(`/api/hr/payroll/recalculate/${id}`);
+      setRecord(res.data.data);
+      toast.success(t('hr.payroll.recalculated'));
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('messages.error'));
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const goToAttendanceReview = () => {
+    if (!record?._id) return;
+    const employeeId = record.employee?._id || record.employee;
+    const params = new URLSearchParams({
+      attendanceReview: '1',
+      payrollId: record._id,
+      periodYear: String(record.periodYear),
+      periodMonth: String(record.periodMonth)
+    });
+    if (employeeId) params.set('employee', employeeId);
+    navigate(`/app/hr/attendance?${params.toString()}`);
   };
 
   if (loading) {
@@ -207,11 +234,34 @@ const PayrollRecordPage = () => {
         </Card>
       ) : (
         <Card>
+          {record?.requiresAttendanceReview && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700/60 dark:bg-amber-900/30">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                {record?.reviewMessage || t('hr.payroll.attendanceReviewWarning')}
+              </p>
+            </div>
+          )}
+          {record?.requiresRegeneration && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 dark:border-orange-700/60 dark:bg-orange-900/30">
+              <RefreshCw className="h-5 w-5 flex-shrink-0 text-orange-600 dark:text-orange-400 mt-0.5" />
+              <p className="text-sm text-orange-800 dark:text-orange-200">
+                {t('hr.payroll.outOfDateWarning')}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div><span className="text-gray-500">Employee:</span> <span className="font-medium">{record?.employee?.user?.name || record?.employee?.employeeId || '-'}</span></div>
             <div><span className="text-gray-500">Period:</span> <span className="font-medium">{record?.periodMonth}/{record?.periodYear}</span></div>
             <div><span className="text-gray-500">Status:</span> <span className="font-medium">{record?.status}</span></div>
             <div><span className="text-gray-500">Working Days:</span> <span className="font-medium">{record?.workingDaysOfMonth}</span></div>
+            <div><span className="text-gray-500">Present Days:</span> <span className="font-medium">{record?.presentDays ?? 0}</span></div>
+            <div>
+              <span className="text-gray-500">Incomplete Days:</span>{' '}
+              <span className={`font-medium ${record?.incompleteDays > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>
+                {record?.incompleteDays ?? 0}
+              </span>
+            </div>
             <div><span className="text-gray-500">Base Salary:</span> <span className="font-medium">{money(record?.baseSalary)}</span></div>
             <div><span className="text-gray-500">Daily Salary:</span> <span className="font-medium">{money(record?.dailySalary)}</span></div>
             <div><span className="text-gray-500">Hourly Rate:</span> <span className="font-medium">{money(record?.hourlyRate)}</span></div>
@@ -234,15 +284,37 @@ const PayrollRecordPage = () => {
           )}
 
           <div className="flex gap-2 pt-6">
-            {record?.status === 'draft' && (
-              <button
-                type="button"
-                onClick={handleApprove}
-                disabled={approving}
-                className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium disabled:opacity-50"
-              >
-                {approving ? t('common.loading') : 'Approve Payroll'}
-              </button>
+            {(record?.status === 'draft' || record?.status === 'needs_review') && (
+              (record?.requiresAttendanceReview || record?.status === 'needs_review') ? (
+                <button
+                  type="button"
+                  onClick={goToAttendanceReview}
+                  disabled={approving}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium disabled:opacity-50"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {t('hr.payroll.recalculate')}
+                </button>
+              ) : record?.requiresRegeneration ? (
+                <button
+                  type="button"
+                  onClick={handleRecalculate}
+                  disabled={approving}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium disabled:opacity-50"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {approving ? t('common.loading') : t('hr.payroll.recalculate')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={approving}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {approving ? t('common.loading') : 'Approve Payroll'}
+                </button>
+              )
             )}
             <Link
               to="/app/hr/payroll"

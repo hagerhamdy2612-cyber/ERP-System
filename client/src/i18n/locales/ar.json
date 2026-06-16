@@ -266,6 +266,8 @@
       "deleteConfirm": "حذف سجل الراتب هذا؟",
       "noRecords": "لا توجد سجلات رواتب.",
       "paginationSummary": "عرض {{from}}–{{to}} من {{total}}",
+      "needsReview": "بحاجة إلى مراجعة",
+      "attendanceReviewWarning": "يحتوي هذا الراتب على سجلات حضور غير مكتملة ويجب مراجعتها قبل الاعتماد.",
       "colEmployee": "الموظف",
       "colPeriod": "الفترة",
       "colBase": "أساسي",
@@ -283,9 +285,13 @@
       "paidFromFinanceBanner": "تم سداد هذا الراتب من المالية ({{bank}}). الراتب الأساسي والمكافآت والخصومات والحالة غير قابلة للتعديل. يُعرض السداد ضمن المصروفات كرواتب.",
       "statusLabels": {
         "draft": "مسودة",
+        "needs_review": "بحاجة إلى مراجعة",
         "approved": "معتمد",
         "paid": "مدفوع"
       },
+      "recalculate": "إعادة الحساب",
+      "recalculated": "تمت إعادة حساب الراتب",
+      "outOfDateWarning": "هذا الراتب غير محدّث بعد تعديلات الحضور. أعد حسابه قبل الاعتماد.",
       "errors": {
         "loadEmployees": "فشل تحميل الموظفين",
         "loadPayroll": "فشل تحميل الرواتب",
@@ -445,8 +451,11 @@
       "orderCreated": "تم إنشاء طلب المبيعات بنجاح",
       "orderUpdated": "تم تحديث طلب المبيعات بنجاح",
       "orderConfirmed": "تم تأكيد طلب المبيعات بنجاح",
-      "orderShipped": "تم شحن طلب المبيعات بنجاح",
+      "orderDelivered": "تم تسليم طلب المبيعات بنجاح",
       "orderDeleted": "تم حذف طلب المبيعات بنجاح"
+    },
+    "actions": {
+      "deliver": "تسليم"
     },
     "errors": {
       "fetchFailed": "فشل في جلب طلبات المبيعات",
@@ -454,7 +463,7 @@
       "createFailed": "فشل في إنشاء طلب المبيعات",
       "updateFailed": "فشل في تحديث طلب المبيعات",
       "confirmFailed": "فشل في تأكيد الطلب",
-      "shipFailed": "فشل في شحن الطلب",
+      "deliverFailed": "فشل في تسليم الطلب",
       "deleteFailed": "فشل في حذف طلب المبيعات",
       "invoiceLoadFailed": "فشل في تحميل الفاتورة"
     },
@@ -490,7 +499,6 @@
         "pending": "قيد الانتظار",
         "confirmed": "مؤكد",
         "in-production": "قيد الإنتاج",
-        "shipped": "تم الشحن",
         "delivered": "تم التسليم",
         "cancelled": "ملغى"
       },
@@ -515,15 +523,12 @@
       "revenueTrends": "اتجاهات الإيرادات خلال الشهر الماضي",
       "revenue": "الإيرادات",
       "noRevenueData": "لا توجد بيانات إيرادات",
-      "chartTitle": "الطلبات حسب تاريخ التسليم",
-      "chartSubtitle": "كل نقطة تمثل طلباً وفق تاريخ التسليم المدخل في النموذج (مرتبة زمنياً). يعبّر ارتفاع المنحنى عن إجمالي قيمة الطلب.",
+      "chartTitle": "إيرادات المبيعات",
+      "chartSubtitle": "الإيرادات اليومية من الطلبات المؤكدة والمسلَّمة (حسب تاريخ الطلب).",
       "chartEmpty": "لا توجد طلبات مبيعات للرسم بعد",
       "recentOrders": "طلبات المبيعات الأخيرة",
       "noOrders": "لا توجد طلبات مبيعات بعد",
-      "tooltipDelivery": "التسليم",
-      "tooltipNoDeliveryDate": "(لا يوجد تاريخ تسليم — استخدام تاريخ الطلب)",
-      "tooltipCustomer": "العميل",
-      "tooltipOrderTotal": "إجمالي الطلب",
+      "tooltipOrders": "عدد الطلبات",
       "tooltipRevenue": "الإيرادات"
     }
   },
@@ -905,7 +910,13 @@
       "totalSpent": "إجمالي الإنفاق",
       "averageOrder": "متوسط الطلب",
       "noItems": "لا توجد عناصر",
-      "company": "الشركة"
+      "company": "الشركة",
+      "address": "العنوان",
+      "street": "الشارع",
+      "city": "المدينة",
+      "state": "المحافظة / الولاية",
+      "zipCode": "الرمز البريدي",
+      "country": "الدولة"
     },
     "complaints": {
       "title": "الشكاوى",

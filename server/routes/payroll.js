@@ -10,6 +10,8 @@ router.get('/', payrollController.listPayroll);
 router.delete('/', payrollController.deleteAllPayroll);
 router.post('/generate', payrollController.generatePayroll);
 router.patch('/approve/:id', payrollController.approvePayroll);
+router.patch('/recalculate/:id', payrollController.recalculatePayroll);
+router.patch('/:id/recalculate', payrollController.recalculatePayroll);
 router.get('/:id', payrollController.getPayrollById);
 
 module.exports = router;

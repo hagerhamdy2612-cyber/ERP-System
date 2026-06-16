@@ -29,7 +29,6 @@ const CRMCustomers = () => {
     address: {
       street: '',
       city: '',
-      state: '',
       zipCode: '',
       country: ''
     },
@@ -104,6 +103,16 @@ const CRMCustomers = () => {
     fetchSalesHistory(customer._id);
   };
 
+  const updateAddressField = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        [field]: value
+      }
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isValidPhone(formData.phone)) {
@@ -137,7 +146,6 @@ const CRMCustomers = () => {
         address: {
           street: '',
           city: '',
-          state: '',
           zipCode: '',
           country: ''
         },
@@ -162,7 +170,6 @@ const CRMCustomers = () => {
       address: customer.address || {
         street: '',
         city: '',
-        state: '',
         zipCode: '',
         country: ''
       },
@@ -195,7 +202,6 @@ const CRMCustomers = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'delivered': return 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-400';
-      case 'shipped': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-400';
       case 'confirmed': return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-400';
       case 'in-production': return 'bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-400';
       case 'pending': return 'bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300';
@@ -310,9 +316,11 @@ const CRMCustomers = () => {
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">${customer.creditLimit ? customer.creditLimit.toLocaleString() : '0'}</span>
                 </div>
-                {customer.address && (
+                {customer.address && (customer.address.city || customer.address.country) && (
                   <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    <span>{customer.address.city}, {customer.address.state}</span>
+                    <span>
+                      {[customer.address.city, customer.address.country].filter(Boolean).join(', ')}
+                    </span>
                   </div>
                 )}
                 {customerStats[customer._id] && (
@@ -347,7 +355,7 @@ const CRMCustomers = () => {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black dark:bg-opacity-70 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-96 shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
+          <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-full max-w-lg shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 {editingCustomer ? 'Edit Customer' : 'Add Customer'}
@@ -428,6 +436,57 @@ const CRMCustomers = () => {
                   />
                 </div>
               )}
+              <div className="space-y-3 pt-1">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('crm.customers.address')}
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('crm.customers.street')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address.street}
+                    onChange={(e) => updateAddressField('street', e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('crm.customers.city')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address.city}
+                    onChange={(e) => updateAddressField('city', e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('crm.customers.zipCode')}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address.zipCode}
+                      onChange={(e) => updateAddressField('zipCode', e.target.value)}
+                      className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('crm.customers.country')}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address.country}
+                      onChange={(e) => updateAddressField('country', e.target.value)}
+                      className="mt-1 block w-full border border-gray-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

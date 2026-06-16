@@ -54,11 +54,18 @@ const FinishedProducts = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const cleanedMaterials = (formData.requiredMaterials || [])
+        .filter(rm => rm.product && rm.quantity)
+        .map(rm => ({ product: rm.product, quantity: Number(rm.quantity) }));
+      // Final product unit cost is derived from its bill of materials (raw material costs).
+      const derivedUnitCost = cleanedMaterials.reduce((sum, rm) => {
+        const material = rawMaterials.find((m) => m._id === rm.product);
+        return sum + rm.quantity * (material?.unitCost || 0);
+      }, 0);
       const payload = {
         ...formData,
-        requiredMaterials: (formData.requiredMaterials || [])
-          .filter(rm => rm.product && rm.quantity)
-          .map(rm => ({ product: rm.product, quantity: Number(rm.quantity) }))
+        unitCost: Number(derivedUnitCost.toFixed(2)),
+        requiredMaterials: cleanedMaterials
       };
       if (editingProduct) {
         await axios.put(`/api/inventory/products/${editingProduct._id}`, payload);
@@ -360,21 +367,6 @@ const FinishedProducts = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      {t('inventory.finishedProducts.unitCost')}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={formData.unitCost}
-                      onChange={(e) => setFormData({ ...formData, unitCost: e.target.value })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
                       {t('inventory.finishedProducts.minStockLevel')}
                     </label>
                     <input
@@ -385,6 +377,8 @@ const FinishedProducts = () => {
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       {t('inventory.finishedProducts.maxStockLevel')}
@@ -397,18 +391,18 @@ const FinishedProducts = () => {
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    {t('inventory.finishedProducts.sellingPrice')}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.sellingPrice}
-                    onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      {t('inventory.finishedProducts.sellingPrice')}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.sellingPrice}
+                      onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
@@ -422,12 +416,9 @@ const FinishedProducts = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('inventory.finishedProducts.requiredRawMaterialsFromInventory')}
                   </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    {t('inventory.finishedProducts.requiredRawMaterialsHint')}
-                  </p>
                   {(formData.requiredMaterials || [{ product: '', quantity: '' }]).map((rm, index) => (
                     <div key={index} className="flex gap-2 items-center mb-2">
                       <select

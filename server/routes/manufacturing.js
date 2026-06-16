@@ -11,6 +11,7 @@ const {
 } = require('../middleware/auth');
 const { archiveDocument } = require('../services/archiveService');
 const { shouldTriggerAutoPurchaseForProduct } = require('../utils/autoPurchaseLowStock');
+const { recordManufacturingExpense } = require('../services/manufacturingFinanceService');
 
 const router = express.Router();
 
@@ -373,6 +374,17 @@ router.put('/production-orders/:id/complete', [
       notes: `Finished goods produced for order ${productionOrder.orderNumber}`,
       performedBy: req.user.id
     });
+
+    // Automatically record the manufacturing cost as a finance expense.
+    // Non-fatal: a failure here must not block production completion.
+    try {
+      await recordManufacturingExpense({
+        productionOrder,
+        productName: product?.name
+      });
+    } catch (expenseError) {
+      console.error('Failed to record manufacturing expense:', expenseError);
+    }
 
     await productionOrder.populate('product', 'name sku');
     await productionOrder.populate('materials.product', 'name sku unitCost');

@@ -45,21 +45,26 @@ const InventoryDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [productsRes, lowStockRes] = await Promise.all([
-        axios.get('/api/inventory/products'),
-        axios.get('/api/inventory/low-stock')
-      ]);
-
+      const productsRes = await axios.get('/api/inventory/products');
       const products = productsRes.data.data || [];
-      const lowStock = lowStockRes.data.data || [];
-      
+
+      // Stock status rules:
+      //   Out of stock = currentStock === 0
+      //   Low stock    = currentStock > 0 AND currentStock <= minStockLevel
+      const outOfStockItems = products.filter((p) => (p.currentStock || 0) === 0);
+      const lowStockItems = products.filter((p) => {
+        const stock = p.currentStock || 0;
+        const min = p.minStockLevel || 0;
+        return stock > 0 && stock <= min;
+      });
+
       // Calculate KPIs
       const totalProducts = products.length;
-      const lowStockCount = lowStock.length;
-      const outOfStockCount = products.filter(p => p.currentStock === 0).length;
-      
+      const lowStockCount = lowStockItems.length;
+      const outOfStockCount = outOfStockItems.length;
+
       // Calculate total stock value
-      const stockValue = products.reduce((sum, p) => 
+      const stockValue = products.reduce((sum, p) =>
         sum + (p.currentStock * (p.unitCost || 0)), 0
       );
 
@@ -70,8 +75,10 @@ const InventoryDashboard = () => {
         return acc;
       }, {});
 
-      setLowStockProducts(lowStock.slice(0, 5));
-      
+      // Alerts panel: items needing replenishment (out of stock first, then low stock).
+      const alertItems = [...outOfStockItems, ...lowStockItems];
+      setLowStockProducts(alertItems.slice(0, 5));
+
       setKpis({
         totalProducts,
         lowStockCount,

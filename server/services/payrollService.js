@@ -7,39 +7,43 @@ const Expense = require('../models/Expense');
 const Transaction = require('../models/Transaction');
 const BankAccount = require('../models/BankAccount');
 const { createPendingPayrollExpense } = require('./financeService');
-const { calculateAttendanceMetrics } = require('../utils/attendanceMetrics');
-const { getPayrollAttendanceQueryBounds } = require('../utils/payrollPeriodSlots');
+const {
+  deriveAttendanceState,
+  countWorkingDaysInMonth,
+  getMonthRange,
+  getBusinessDayKey,
+  isWorkingDay,
+  WORKING_HOURS_PER_DAY,
+  OVERTIME_RATE
+} = require('../utils/attendancePolicy');
 
 const BONUS_RATE = 0.02;
-const WORKING_DAYS_PER_MONTH = 26;
-const WORKING_HOURS_PER_DAY = 8;
-const OVERTIME_RATE = 1.5;
 const PAYROLL_STATUS = {
   DRAFT: 'draft',
+  NEEDS_REVIEW: 'needs_review',
   APPROVED: 'approved',
   PAID: 'paid'
 };
+
+const ATTENDANCE_REVIEW_MESSAGE =
+  'This payroll contains incomplete attendance records and must be reviewed before approval.';
 
 function roundCurrency(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
-function normalizeAttendanceStatus(status) {
-  return String(status ?? '')
-    .trim()
-    .toLowerCase();
+// Attach a human-readable reviewMessage to plain payroll objects so the frontend
+// can render a warning banner without re-deriving the rule.
+function decoratePayroll(payroll) {
+  if (!payroll) return payroll;
+  if (payroll.requiresAttendanceReview) {
+    return { ...payroll, reviewMessage: ATTENDANCE_REVIEW_MESSAGE };
+  }
+  return payroll;
 }
 
-function toDateKeyUTC(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 10);
-}
-
-function getMonthRange(year, month) {
-  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-  return { start, end };
+function decoratePayrollList(rows) {
+  return Array.isArray(rows) ? rows.map(decoratePayroll) : rows;
 }
 
 function parsePeriod(periodYear, periodMonth) {
@@ -102,45 +106,142 @@ function getApprovedLeaveDays(employee, payload) {
   return Math.max(0, Math.floor(numericDays));
 }
 
-function buildAttendanceSummary(attendanceRows) {
-  const byEmployee = new Map();
+// Pure salary computation shared by generation and recalculation so both always
+// produce identical numbers from the same inputs.
+function computePayrollFields({
+  employee,
+  workingDaysOfMonth,
+  attendanceSummary,
+  totalSalesAmount,
+  approvedLeaveDays
+}) {
+  const baseSalary = roundCurrency(employee.salary || 0);
+  const dailySalary = workingDaysOfMonth > 0
+    ? roundCurrency(baseSalary / workingDaysOfMonth)
+    : 0;
+  const hourlyRate = roundCurrency(dailySalary / WORKING_HOURS_PER_DAY);
+  const rawPresentDays = attendanceSummary?.presentDateKeys.size || 0;
+  const presentDays = Math.min(workingDaysOfMonth, rawPresentDays);
+  const incompleteDays = attendanceSummary?.incompleteDateKeys.size || 0;
+  const safeApprovedLeaveDays = Math.max(0, Math.floor(approvedLeaveDays || 0));
+  // Absent = Working Days - Present - Approved Leave. Incomplete days are NOT
+  // subtracted (they must be resolved by HR, not silently excused).
+  const absentDays = Math.max(0, workingDaysOfMonth - presentDays - safeApprovedLeaveDays);
+  const requiresAttendanceReview = incompleteDays > 0;
+  const absenceDeduction = roundCurrency(absentDays * dailySalary);
+  const totalLateMinutes = Math.max(0, attendanceSummary?.totalLateMinutes || 0);
+  const perMinuteRate = hourlyRate / 60;
+  const lateHours = roundCurrency(totalLateMinutes / 60);
+  const lateDeduction = roundCurrency(totalLateMinutes * perMinuteRate);
+  const overtimeMinutes = Math.max(0, attendanceSummary?.totalOvertimeMinutes || 0);
+  const overtimeHours = roundCurrency(overtimeMinutes / 60);
+  const overtimePay = roundCurrency(overtimeMinutes * perMinuteRate * OVERTIME_RATE);
+  const totalSales = roundCurrency(totalSalesAmount || 0);
+  const bonus = roundCurrency(totalSales * BONUS_RATE);
+  const totalDeductions = roundCurrency(absenceDeduction + lateDeduction);
+  const netSalary = roundCurrency(baseSalary - totalDeductions + bonus + overtimePay);
 
+  return {
+    basePay: baseSalary,
+    bonuses: roundCurrency(bonus + overtimePay),
+    deductions: totalDeductions,
+    netPay: netSalary,
+    baseSalary,
+    workingDaysOfMonth,
+    dailySalary,
+    hourlyRate,
+    presentDays,
+    incompleteDays,
+    approvedLeaveDays: safeApprovedLeaveDays,
+    requiresAttendanceReview,
+    absentDays,
+    absenceDeduction,
+    totalLateMinutes,
+    lateHours,
+    lateDeduction,
+    overtimeHours,
+    overtimePay,
+    totalSales,
+    bonus,
+    totalDeductions,
+    netSalary
+  };
+}
+
+// Live check against attendance data (working days only). Used to gate approval
+// so HR's fixes are respected even if the stored flag is stale.
+async function findUnresolvedIncompleteAttendance(employeeId, year, month) {
+  const { start, end } = getMonthRange(year, month);
+  const rows = await Attendance.find({
+    employee: employeeId,
+    date: { $gte: start, $lte: end },
+    checkIn: { $ne: null },
+    checkOut: null
+  })
+    .select('date')
+    .lean();
+  return rows.filter((row) => isWorkingDay(row.date));
+}
+
+function buildAttendanceSummary(attendanceRows) {
+  // Step 1: dedupe to one representative record per employee/business-day,
+  // preferring a complete (checkIn + checkOut) record. This matches the
+  // Attendance Report so both modules agree on the same employee/day.
+  const repByEmpDay = new Map();
   for (const row of attendanceRows) {
     const employeeId = String(row.employee);
-    const dateKey = toDateKeyUTC(row.date);
+    const dateKey = getBusinessDayKey(row.date);
     if (!dateKey) continue;
 
-    if (!byEmployee.has(employeeId)) {
-      byEmployee.set(employeeId, {
-        presentDateKeys: new Set(),
-        totalLateMinutes: 0,
-        totalOvertimeMinutes: 0
-      });
+    if (!repByEmpDay.has(employeeId)) repByEmpDay.set(employeeId, new Map());
+    const dayMap = repByEmpDay.get(employeeId);
+    const existing = dayMap.get(dateKey);
+    const isComplete = Boolean(row.checkIn) && Boolean(row.checkOut);
+    if (!existing) {
+      dayMap.set(dateKey, row);
+    } else {
+      const existingComplete = Boolean(existing.checkIn) && Boolean(existing.checkOut);
+      if (!existingComplete && isComplete) dayMap.set(dateKey, row);
     }
-    const summary = byEmployee.get(employeeId);
+  }
 
-    // Payroll working bucket is 26 days/month. Count only explicit working-day
-    // statuses per calendar date (dedupe multiple rows same day). Do not infer
-    // presence from missing days, weekends, or raw row counts.
-    const st = normalizeAttendanceStatus(row.status);
-    const isCountedPresentDay = st === 'present' || st === 'late';
+  // Step 2: derive attendance from actual timestamps (not status strings).
+  // - Present/Late (complete records) => worked day, contributes late/overtime.
+  // - Incomplete (checkIn without valid checkOut) => excluded from payroll
+  //   (neither present nor absent) until completed/reviewed by HR.
+  // - Weekend records => OFF_DAY, ignored.
+  const byEmployee = new Map();
+  for (const [employeeId, dayMap] of repByEmpDay.entries()) {
+    const summary = {
+      presentDateKeys: new Set(),
+      incompleteDateKeys: new Set(),
+      totalLateMinutes: 0,
+      totalOvertimeMinutes: 0
+    };
 
-    if (isCountedPresentDay) {
-      summary.presentDateKeys.add(dateKey);
-    }
+    for (const [dateKey, record] of dayMap.entries()) {
+      if (!isWorkingDay(record.date)) continue;
 
-    if (isCountedPresentDay) {
-      const metrics = calculateAttendanceMetrics({
-        checkIn: row.checkIn,
-        checkOut: row.checkOut,
-        attendanceDate: row.date,
-        standardHours: WORKING_HOURS_PER_DAY
+      const derived = deriveAttendanceState({
+        checkIn: record.checkIn || null,
+        checkOut: record.checkOut || null,
+        attendanceDate: record.date,
+        hasRecord: true,
+        workingDay: true
       });
-      if (metrics.isValid) {
-        summary.totalLateMinutes += metrics.lateMinutes;
-        summary.totalOvertimeMinutes += metrics.overtimeMinutes;
+
+      if (derived.isWorked) {
+        summary.presentDateKeys.add(dateKey);
+        summary.totalLateMinutes += derived.metrics.lateMinutes;
+        // Overtime only accrues for completed attendance (enforced by the
+        // state machine: Incomplete/Absent/OFF_DAY produce zero overtime).
+        summary.totalOvertimeMinutes += derived.metrics.overtimeMinutes;
+      } else if (derived.isIncomplete) {
+        summary.incompleteDateKeys.add(dateKey);
       }
     }
+
+    byEmployee.set(employeeId, summary);
   }
 
   return byEmployee;
@@ -228,7 +329,7 @@ async function listPayroll(query) {
 
   return {
     count: rows.length,
-    data: rows,
+    data: decoratePayrollList(rows),
     pagination: {
       page,
       limit,
@@ -256,7 +357,7 @@ async function getPayrollById(id) {
     throw error;
   }
 
-  return payroll;
+  return decoratePayroll(payroll);
 }
 
 async function generatePayroll(payload) {
@@ -283,8 +384,10 @@ async function generatePayroll(payload) {
   }
 
   const { start: salesMonthStart, end: salesMonthEnd } = getMonthRange(year, month);
-  const { start: attendanceStart, end: attendanceEnd } = getPayrollAttendanceQueryBounds(year, month);
-  const workingDaysOfMonth = WORKING_DAYS_PER_MONTH;
+  // Query the whole calendar month; working days are derived dynamically
+  // (weekends excluded) instead of the old fixed first-26-days bucket.
+  const { start: attendanceStart, end: attendanceEnd } = getMonthRange(year, month);
+  const workingDaysOfMonth = countWorkingDaysInMonth(year, month);
 
   const attendanceRows = await Attendance.find({
     employee: { $in: employees.map((emp) => emp._id) },
@@ -302,54 +405,25 @@ async function generatePayroll(payload) {
 
   const payrollDocs = employees.map((employee) => {
     const employeeId = String(employee._id);
-    const baseSalary = roundCurrency(employee.salary || 0);
-    const dailySalary = roundCurrency(baseSalary / WORKING_DAYS_PER_MONTH);
-    const hourlyRate = roundCurrency(dailySalary / WORKING_HOURS_PER_DAY);
-    const attendanceSummary = attendanceSummaryByEmployee.get(employeeId);
-    const rawPresentDays = attendanceSummary?.presentDateKeys.size || 0;
-    const presentDays = Math.min(WORKING_DAYS_PER_MONTH, rawPresentDays);
-    const approvedLeaveDays = getApprovedLeaveDays(employee, payload);
-    const absentDays = Math.max(
-      0,
-      workingDaysOfMonth - presentDays - approvedLeaveDays
-    );
-    const absenceDeduction = roundCurrency(absentDays * dailySalary);
-    const totalLateMinutes = Math.max(0, attendanceSummary?.totalLateMinutes || 0);
-    const perMinuteRate = hourlyRate / 60;
-    const lateHours = roundCurrency(totalLateMinutes / 60);
-    const lateDeduction = roundCurrency(totalLateMinutes * perMinuteRate);
-    const overtimeMinutes = Math.max(0, attendanceSummary?.totalOvertimeMinutes || 0);
-    const overtimeHours = roundCurrency(overtimeMinutes / 60);
-    const overtimePay = roundCurrency(overtimeMinutes * perMinuteRate * OVERTIME_RATE);
-    const totalSales = roundCurrency(salesTotals.get(employeeId) || 0);
-    const bonus = roundCurrency(totalSales * BONUS_RATE);
-    const totalDeductions = roundCurrency(absenceDeduction + lateDeduction);
-    const netSalary = roundCurrency(baseSalary - totalDeductions + bonus + overtimePay);
+    const fields = computePayrollFields({
+      employee,
+      workingDaysOfMonth,
+      attendanceSummary: attendanceSummaryByEmployee.get(employeeId),
+      totalSalesAmount: salesTotals.get(employeeId) || 0,
+      approvedLeaveDays: getApprovedLeaveDays(employee, payload)
+    });
 
     return {
       employee: employee._id,
       periodYear: year,
       periodMonth: month,
-      basePay: baseSalary,
-      bonuses: roundCurrency(bonus + overtimePay),
-      deductions: totalDeductions,
-      netPay: netSalary,
-      baseSalary,
-      workingDaysOfMonth,
-      dailySalary,
-      hourlyRate,
-      absentDays,
-      absenceDeduction,
-      totalLateMinutes,
-      lateHours,
-      lateDeduction,
-      overtimeHours,
-      overtimePay,
-      totalSales,
-      bonus,
-      totalDeductions,
-      netSalary,
-      status: PAYROLL_STATUS.DRAFT
+      ...fields,
+      requiresRegeneration: false,
+      // Records with incomplete attendance start as needs_review and cannot be
+      // approved until HR resolves them.
+      status: fields.requiresAttendanceReview
+        ? PAYROLL_STATUS.NEEDS_REVIEW
+        : PAYROLL_STATUS.DRAFT
     };
   });
 
@@ -362,7 +436,7 @@ async function generatePayroll(payload) {
     .sort({ createdAt: -1 })
     .lean();
 
-  return rows;
+  return decoratePayrollList(rows);
 }
 
 async function deleteAllPayroll(query) {
@@ -473,6 +547,30 @@ async function approvePayroll(id) {
     throw error;
   }
 
+  // If attendance was edited after this payroll was generated, the stored
+  // numbers are stale. Force a recalculation before approval.
+  if (payroll.requiresRegeneration === true) {
+    const error = new Error(
+      'Payroll is out of date after attendance changes. Please recalculate the payroll before approval.'
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Critical integrity rule: re-check live attendance data (not just the stored
+  // flag) so HR fixes are honored. Never finalize a salary while unresolved
+  // incomplete attendance exists in the period.
+  const unresolved = await findUnresolvedIncompleteAttendance(
+    payroll.employee?._id || payroll.employee,
+    payroll.periodYear,
+    payroll.periodMonth
+  );
+  if (unresolved.length > 0) {
+    const error = new Error('Payroll contains unresolved incomplete attendance records');
+    error.statusCode = 400;
+    throw error;
+  }
+
   if (payroll.financeExpense) {
     const error = new Error('Finance expense already linked to this payroll');
     error.statusCode = 400;
@@ -489,16 +587,85 @@ async function approvePayroll(id) {
     .populate(financePopulate())
     .lean();
 
-  return updated;
+  return decoratePayroll(updated);
+}
+
+// Recompute a single payroll record in place from the current attendance + sales
+// data. Lets HR fix incomplete attendance and refresh the salary without having
+// to delete and regenerate the whole period. Clears the dirty flag.
+async function recalculatePayroll(id) {
+  if (!mongoose.isValidObjectId(id)) {
+    const error = new Error('Invalid payroll id');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const payroll = await PayrollRecord.findById(id);
+  if (!payroll) {
+    const error = new Error('Payroll record not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (payroll.status === PAYROLL_STATUS.APPROVED || payroll.status === PAYROLL_STATUS.PAID) {
+    const error = new Error('Only draft or needs-review payroll can be recalculated');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const employee = await Employee.findById(payroll.employee);
+  if (!employee) {
+    const error = new Error('Employee not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const year = payroll.periodYear;
+  const month = payroll.periodMonth;
+  const workingDaysOfMonth = countWorkingDaysInMonth(year, month);
+  const { start, end } = getMonthRange(year, month);
+
+  const attendanceRows = await Attendance.find({
+    employee: employee._id,
+    date: { $gte: start, $lte: end }
+  })
+    .select('employee date checkIn checkOut status')
+    .lean();
+
+  const attendanceSummary = buildAttendanceSummary(attendanceRows).get(String(employee._id));
+  const salesTotals = await getSalesTotalsByEmployee([employee._id], start, end);
+
+  const fields = computePayrollFields({
+    employee,
+    workingDaysOfMonth,
+    attendanceSummary,
+    totalSalesAmount: salesTotals.get(String(employee._id)) || 0,
+    // Preserve the approved-leave value captured at generation time.
+    approvedLeaveDays: payroll.approvedLeaveDays || 0
+  });
+
+  Object.assign(payroll, fields);
+  payroll.requiresRegeneration = false;
+  payroll.status = fields.requiresAttendanceReview
+    ? PAYROLL_STATUS.NEEDS_REVIEW
+    : PAYROLL_STATUS.DRAFT;
+  await payroll.save();
+
+  const updated = await PayrollRecord.findById(payroll._id)
+    .populate(employeePopulate())
+    .populate(financePopulate())
+    .lean();
+
+  return decoratePayroll(updated);
 }
 
 module.exports = {
-  WORKING_DAYS_PER_MONTH,
   WORKING_HOURS_PER_DAY,
   OVERTIME_RATE,
   listPayroll,
   getPayrollById,
   generatePayroll,
   deleteAllPayroll,
-  approvePayroll
+  approvePayroll,
+  recalculatePayroll
 };

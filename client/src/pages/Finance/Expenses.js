@@ -14,7 +14,14 @@ const FinanceExpenses = () => {
   const [showModal, setShowModal] = useState(false);
   const [showPayrollPayModal, setShowPayrollPayModal] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState(null);
+  const [showExpensePayModal, setShowExpensePayModal] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState(null);
   const [payrollPayForm, setPayrollPayForm] = useState({
+    bankAccountId: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+  const [expensePayForm, setExpensePayForm] = useState({
     bankAccountId: '',
     paymentDate: new Date().toISOString().split('T')[0],
     notes: ''
@@ -29,6 +36,7 @@ const FinanceExpenses = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [payingPayroll, setPayingPayroll] = useState(false);
+  const [payingExpense, setPayingExpense] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -120,6 +128,41 @@ const FinanceExpenses = () => {
       toast.error(error.response?.data?.message || t('messages.error'));
     } finally {
       setPayingPayroll(false);
+    }
+  };
+
+  const handleOpenExpensePay = (expense) => {
+    setSelectedExpense(expense);
+    setExpensePayForm({
+      bankAccountId: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      notes: expense.notes || ''
+    });
+    setShowExpensePayModal(true);
+  };
+
+  const handlePayExpense = async () => {
+    if (!selectedExpense?._id) return;
+    if (!expensePayForm.bankAccountId) {
+      toast.error(t('finance.transactions.errors.selectBankAccount'));
+      return;
+    }
+
+    setPayingExpense(true);
+    try {
+      await axios.post(`/api/finance/expenses/${selectedExpense._id}/pay`, {
+        bankAccountId: expensePayForm.bankAccountId,
+        paymentDate: expensePayForm.paymentDate,
+        notes: expensePayForm.notes
+      });
+      toast.success(t('messages.updateSuccess'));
+      setShowExpensePayModal(false);
+      setSelectedExpense(null);
+      await fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('messages.error'));
+    } finally {
+      setPayingExpense(false);
     }
   };
 
@@ -239,6 +282,9 @@ const FinanceExpenses = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {t('common.notes')}
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('common.actions')}
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -257,7 +303,7 @@ const FinanceExpenses = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {expense.bankAccount?.name || t('common.unknown')}
+                      {expense.bankAccount?.name || expense.status || t('common.unknown')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 dark:text-red-400 text-right">
                       {expense.amount.toLocaleString('en-US', {
@@ -269,11 +315,26 @@ const FinanceExpenses = () => {
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                       {expense.notes || '-'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {expense.status === 'Pending Payment' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenExpensePay(expense)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
+                        >
+                          {t('finance.transactions.pay')}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                          {expense.status}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                     {t('finance.expenses.noExpenses')}
                   </td>
                 </tr>
@@ -520,6 +581,99 @@ const FinanceExpenses = () => {
                   onClick={() => {
                     setShowPayrollPayModal(false);
                     setSelectedPayroll(null);
+                  }}
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExpensePayModal && selectedExpense && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-black dark:bg-opacity-70 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border border-gray-200 dark:border-slate-700 w-96 shadow-lg rounded-md bg-white dark:bg-slate-800 transition-colors duration-300">
+            <div className="mb-4 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                {t('finance.transactions.pay')} {selectedExpense.title}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowExpensePayModal(false);
+                  setSelectedExpense(null);
+                }}
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {Number(selectedExpense.amount || 0).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })}{' '}
+                EGP
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('finance.transactions.selectBankAccount')}
+                </label>
+                <select
+                  value={expensePayForm.bankAccountId}
+                  onChange={(e) => setExpensePayForm((p) => ({ ...p, bankAccountId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                >
+                  <option value="">{t('common.selectAccount')}</option>
+                  {bankAccounts.map((account) => (
+                    <option key={account._id} value={account._id}>
+                      {account.name} - {t('common.balance')}:{' '}
+                      {Number(account.balance).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}{' '}
+                      EGP
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('hr.payroll.paymentDate')}
+                </label>
+                <input
+                  type="date"
+                  value={expensePayForm.paymentDate}
+                  onChange={(e) => setExpensePayForm((p) => ({ ...p, paymentDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('common.notes')}
+                </label>
+                <textarea
+                  rows={3}
+                  value={expensePayForm.notes}
+                  onChange={(e) => setExpensePayForm((p) => ({ ...p, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                />
+              </div>
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handlePayExpense}
+                  disabled={payingExpense || !expensePayForm.bankAccountId}
+                  className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                >
+                  {payingExpense ? t('common.loading') : t('finance.transactions.pay')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExpensePayModal(false);
+                    setSelectedExpense(null);
                   }}
                   className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-slate-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
                 >

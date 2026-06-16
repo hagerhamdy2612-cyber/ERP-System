@@ -18,7 +18,6 @@ export const getDarkModeTooltipStyle = () => {
 export const getStatusBadgeColors = (status) => {
   const baseColors = {
     delivered: { bg: 'bg-green-100', text: 'text-green-800', darkBg: 'dark:bg-green-500/20', darkText: 'dark:text-green-400' },
-    shipped: { bg: 'bg-blue-100', text: 'text-blue-800', darkBg: 'dark:bg-blue-500/20', darkText: 'dark:text-blue-400' },
     confirmed: { bg: 'bg-purple-100', text: 'text-purple-800', darkBg: 'dark:bg-purple-500/20', darkText: 'dark:text-purple-400' },
     pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', darkBg: 'dark:bg-yellow-500/20', darkText: 'dark:text-yellow-400' },
     paid: { bg: 'bg-green-100', text: 'text-green-800', darkBg: 'dark:bg-green-500/20', darkText: 'dark:text-green-400' },

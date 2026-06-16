@@ -250,12 +250,9 @@ router.post('/orders', [
       req
     });
 
-    await ensureInvoiceForPurchaseOrder({
-      purchaseOrder,
-      supplierId: supplier,
-      items: processedItems,
-      notes: notes || ''
-    });
+    // Invoice is intentionally NOT created here. It is generated when the PO is
+    // accepted/placed with the supplier (PUT /orders/:id/order), so pending POs
+    // don't show up as invoices in Finance before they are approved.
 
     res.status(201).json({
       success: true,
@@ -391,6 +388,15 @@ router.put('/orders/:id/order', [
     purchaseOrder.status = 'ordered';
     await purchaseOrder.save();
 
+    // The invoice (which shows up in Finance) is created only once the PO is
+    // accepted/placed with the supplier — not while it is still pending.
+    await ensureInvoiceForPurchaseOrder({
+      purchaseOrder,
+      supplierId: purchaseOrder.supplier,
+      items: purchaseOrder.items,
+      notes: purchaseOrder.notes || ''
+    });
+
     await logActivity({
       userId: req.user.id,
       action: 'APPROVE',
@@ -500,6 +506,14 @@ router.post('/auto-generate', [
     for (const product of lowStockProducts) {
       if (!product.supplier) continue;
 
+      // Skip if there is already an open PO (pending/ordered) for this product so we
+      // don't create a duplicate PO + invoice for stock that is already on the way.
+      const existingOpenOrder = await PurchaseOrder.findOne({
+        'items.product': product._id,
+        status: { $in: ['pending', 'ordered'] }
+      });
+      if (existingOpenOrder) continue;
+
       const suggestedQuantity = product.maxStockLevel - product.currentStock;
       
       // Calculate totals
@@ -526,12 +540,8 @@ router.post('/auto-generate', [
         source: 'inventory',
         notes: `Auto-generated from inventory: Current stock ${product.currentStock}, Min level ${product.minStockLevel}`
       });
-      await ensureInvoiceForPurchaseOrder({
-        purchaseOrder,
-        supplierId: product.supplier._id,
-        items: purchaseOrder.items,
-        notes: purchaseOrder.notes || ''
-      });
+      // Invoice is created when the PO is accepted (PUT /orders/:id/order), not at
+      // auto-generation time, so unapproved auto POs don't appear in Finance.
 
       await purchaseOrder.populate('supplier', 'name contactPerson email');
       await purchaseOrder.populate('items.product', 'name sku unitCost');

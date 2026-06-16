@@ -263,6 +263,8 @@
       "deleteConfirm": "Delete this payroll record?",
       "noRecords": "No payroll records found.",
       "paginationSummary": "Showing {{from}}–{{to}} of {{total}}",
+      "needsReview": "Needs review",
+      "attendanceReviewWarning": "This payroll contains incomplete attendance records and must be reviewed before approval.",
       "colEmployee": "Employee",
       "colPeriod": "Period",
       "colBase": "Base",
@@ -280,9 +282,13 @@
       "paidFromFinanceBanner": "This salary was paid from Finance ({{bank}}). Base pay, bonuses, deductions, and status are locked. The payment appears in Finance → Expenses as Payroll.",
       "statusLabels": {
         "draft": "Draft",
+        "needs_review": "Needs Review",
         "approved": "Approved",
         "paid": "Paid"
       },
+      "recalculate": "Recalculate",
+      "recalculated": "Payroll recalculated",
+      "outOfDateWarning": "This payroll is out of date after attendance changes. Recalculate it before approval.",
       "errors": {
         "loadEmployees": "Failed to load employees",
         "loadPayroll": "Failed to load payroll",
@@ -441,8 +447,11 @@
       "orderCreated": "Sales order created successfully",
       "orderUpdated": "Sales order updated successfully",
       "orderConfirmed": "Sales order confirmed successfully",
-      "orderShipped": "Sales order shipped successfully",
+      "orderDelivered": "Sales order delivered successfully",
       "orderDeleted": "Sales order deleted successfully"
+    },
+    "actions": {
+      "deliver": "Deliver"
     },
     "errors": {
       "fetchFailed": "Failed to fetch sales orders",
@@ -450,7 +459,7 @@
       "createFailed": "Failed to create sales order",
       "updateFailed": "Failed to update sales order",
       "confirmFailed": "Failed to confirm order",
-      "shipFailed": "Failed to ship order",
+      "deliverFailed": "Failed to deliver order",
       "deleteFailed": "Failed to delete sales order",
       "invoiceLoadFailed": "Failed to load invoice"
     },
@@ -460,15 +469,12 @@
       "totalOrders": "Total Orders",
       "customers": "Customers",
       "delivered": "Delivered",
-      "chartTitle": "Orders by delivery date",
-      "chartSubtitle": "One point per order using the delivery date from the form (sorted by that date). Line height is that order's total.",
+      "chartTitle": "Sales Revenue",
+      "chartSubtitle": "Daily revenue from confirmed and delivered orders (by order date).",
       "chartEmpty": "No sales orders to chart yet",
       "recentOrders": "Recent Sales Orders",
       "noOrders": "No sales orders yet",
-      "tooltipDelivery": "Delivery",
-      "tooltipNoDeliveryDate": "(no delivery date — using order date)",
-      "tooltipCustomer": "Customer",
-      "tooltipOrderTotal": "Order total",
+      "tooltipOrders": "Orders",
       "tooltipRevenue": "Revenue"
     },
     "reports": {
@@ -503,7 +509,6 @@
         "pending": "Pending",
         "confirmed": "Confirmed",
         "in-production": "In production",
-        "shipped": "Shipped",
         "delivered": "Delivered",
         "cancelled": "Cancelled"
       },
@@ -894,7 +899,13 @@
       "totalSpent": "Total Spent",
       "averageOrder": "Average Order",
       "noItems": "No items",
-      "company": "Company"
+      "company": "Company",
+      "address": "Address",
+      "street": "Street",
+      "city": "City",
+      "state": "State / Province",
+      "zipCode": "ZIP / Postal Code",
+      "country": "Country"
     },
     "complaints": {
       "title": "Complaints",

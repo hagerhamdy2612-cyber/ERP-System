@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,20 @@ const Attendance = () => {
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [filterDate, setFilterDate] = useState('');
   const [showAllRecords, setShowAllRecords] = useState(false);
+  const [corrections, setCorrections] = useState({});
+
+  const queryParams = new URLSearchParams(location.search);
+  const reviewMode = queryParams.get('attendanceReview') === '1';
+  const reviewEmployee = queryParams.get('employee') || '';
+  const reviewPayrollId = queryParams.get('payrollId') || '';
+  const reviewYear = Number(queryParams.get('periodYear'));
+  const reviewMonth = Number(queryParams.get('periodMonth'));
+  const reviewStartDate = reviewYear && reviewMonth
+    ? `${reviewYear}-${String(reviewMonth).padStart(2, '0')}-01`
+    : '';
+  const reviewEndDate = reviewYear && reviewMonth
+    ? new Date(reviewYear, reviewMonth, 0).toISOString().slice(0, 10)
+    : '';
 
   // Helper to get user ID (handles both 'id' and '_id' properties)
   const getUserId = () => {
@@ -33,7 +47,13 @@ const Attendance = () => {
     try {
       setLoading(true); // Set loading when starting to fetch
       const params = {};
-      if (dateFilter) {
+      if (reviewMode) {
+        if (reviewEmployee) params.employee = reviewEmployee;
+        if (reviewStartDate && reviewEndDate) {
+          params.startDate = reviewStartDate;
+          params.endDate = reviewEndDate;
+        }
+      } else if (dateFilter) {
         params.startDate = dateFilter;
         params.endDate = dateFilter;
       }
@@ -47,6 +67,62 @@ const Attendance = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toDatetimeLocalValue = (record, hour = 17, minute = 0) => {
+    const base = record?.checkOut || record?.checkIn || record?.date;
+    const dt = base ? new Date(base) : new Date();
+    if (!record?.checkOut) {
+      dt.setHours(hour, minute, 0, 0);
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  };
+
+  const getCorrectionValue = (record) => (
+    corrections[record._id]?.checkOut || toDatetimeLocalValue(record)
+  );
+
+  const setCorrectionValue = (recordId, checkOut) => {
+    setCorrections((prev) => ({
+      ...prev,
+      [recordId]: {
+        ...prev[recordId],
+        checkOut
+      }
+    }));
+  };
+
+  const updateAttendanceRecord = async (record, payload, successMessage) => {
+    try {
+      await axios.patch(`/api/hr/attendance/${record._id}`, payload);
+      toast.success(successMessage);
+      fetchAttendance(filterDate);
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('messages.error'));
+    }
+  };
+
+  const saveCheckoutCorrection = (record) => {
+    const value = getCorrectionValue(record);
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) {
+      toast.error('Invalid checkout time');
+      return;
+    }
+    updateAttendanceRecord(
+      record,
+      { checkOut: dt.toISOString(), status: record.status === 'late' ? 'late' : 'present' },
+      'Attendance corrected'
+    );
+  };
+
+  const markAttendanceAbsent = (record) => {
+    updateAttendanceRecord(
+      record,
+      { checkIn: null, checkOut: null, status: 'absent' },
+      'Attendance marked absent'
+    );
   };
 
   // Load from localStorage on mount as backup
@@ -406,6 +482,29 @@ const Attendance = () => {
         </p>
       </div>
 
+      {reviewMode && (
+        <Card>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300">
+                Review incomplete attendance before payroll approval
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                Showing attendance for payroll period {reviewMonth}/{reviewYear}. Add the missing checkout time or mark the record absent, then go back and recalculate payroll.
+              </p>
+            </div>
+            {reviewPayrollId && (
+              <Link
+                to={`/app/hr/payroll/${reviewPayrollId}`}
+                className="inline-flex items-center justify-center px-4 py-2 rounded-md border border-gray-300 dark:border-slate-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700"
+              >
+                Back to payroll
+              </Link>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Check In/Out Controls - Available to all users */}
       {canCheckInOut(user) && (
         <Card>
@@ -567,10 +666,34 @@ const Attendance = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center">
+                <div className="flex items-center gap-3">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
                       {t(`hr.reports.${record.status}`, { defaultValue: record.status })}
                     </span>
+                    {canViewAllAttendanceRecords(user) && record.checkIn && !record.checkOut && (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <input
+                          type="datetime-local"
+                          value={getCorrectionValue(record)}
+                          onChange={(e) => setCorrectionValue(record._id, e.target.value)}
+                          className="border border-gray-300 dark:border-slate-600 rounded-md px-2 py-1 text-xs bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveCheckoutCorrection(record)}
+                          className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+                        >
+                          Save checkout
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => markAttendanceAbsent(record)}
+                          className="px-3 py-1 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700"
+                        >
+                          Mark absent
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </li>

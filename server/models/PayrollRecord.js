@@ -59,6 +59,29 @@ const payrollRecordSchema = new mongoose.Schema(
       min: 0,
       default: 0
     },
+    presentDays: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    incompleteDays: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    approvedLeaveDays: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    requiresAttendanceReview: {
+      type: Boolean,
+      default: false
+    },
+    requiresRegeneration: {
+      type: Boolean,
+      default: false
+    },
     absentDays: {
       type: Number,
       min: 0,
@@ -116,7 +139,7 @@ const payrollRecordSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['draft', 'approved', 'paid'],
+      enum: ['draft', 'needs_review', 'approved', 'paid'],
       default: 'draft'
     },
     paymentDate: {

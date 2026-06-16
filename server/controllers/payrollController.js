@@ -51,6 +51,15 @@ exports.approvePayroll = async (req, res) => {
   }
 };
 
+exports.recalculatePayroll = async (req, res) => {
+  try {
+    const row = await payrollService.recalculatePayroll(req.params.id);
+    res.json({ success: true, data: row });
+  } catch (error) {
+    respondError(res, error, 'recalculatePayroll error:');
+  }
+};
+
 exports.deleteAllPayroll = async (req, res) => {
   try {
     const result = await payrollService.deleteAllPayroll(req.query || {});

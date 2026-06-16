@@ -668,10 +668,10 @@ router.put('/orders/:id/confirm', [
   }
 });
 
-// @route   PUT /api/sales/orders/:id/ship
-// @desc    Ship sales order
+// @route   PUT /api/sales/orders/:id/deliver
+// @desc    Mark sales order as delivered (final fulfillment state)
 // @access  Private (Sales, Admin)
-router.put('/orders/:id/ship', [
+router.put('/orders/:id/deliver', [
   protect,
   authorizeSalesOrderWorkflow
 ], async (req, res) => {
@@ -687,12 +687,12 @@ router.put('/orders/:id/ship', [
     if (salesOrder.status !== 'confirmed') {
       return res.status(400).json({
         success: false,
-        message: 'Sales order must be confirmed before shipping'
+        message: 'Sales order must be confirmed before delivery'
       });
     }
 
     // Update status
-    salesOrder.status = 'shipped';
+    salesOrder.status = 'delivered';
     await salesOrder.save();
 
     await salesOrder.populate('customer', 'name email company');
@@ -703,7 +703,7 @@ router.put('/orders/:id/ship', [
       data: salesOrder
     });
   } catch (error) {
-    console.error('Ship sales order error:', error);
+    console.error('Deliver sales order error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -717,7 +717,7 @@ router.put('/orders/:id/ship', [
 router.get('/revenue', protect, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    let query = { status: { $in: ['confirmed', 'shipped', 'delivered'] } };
+    let query = { status: { $in: ['confirmed', 'delivered'] } };
 
     if (startDate && endDate) {
       query.orderDate = {
@@ -759,7 +759,7 @@ router.get('/revenue', protect, async (req, res) => {
 router.get('/customers-report', protect, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    let query = { status: { $in: ['confirmed', 'shipped', 'delivered'] } };
+    let query = { status: { $in: ['confirmed', 'delivered'] } };
 
     if (startDate && endDate) {
       query.orderDate = {
@@ -822,7 +822,7 @@ router.get('/customers-report', protect, async (req, res) => {
 router.get('/products-report', protect, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    let query = { status: { $in: ['confirmed', 'shipped', 'delivered'] } };
+    let query = { status: { $in: ['confirmed', 'delivered'] } };
 
     if (startDate && endDate) {
       query.orderDate = {
@@ -886,7 +886,7 @@ router.get('/products-report', protect, async (req, res) => {
 router.get('/trends', protect, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    let query = { status: { $in: ['confirmed', 'shipped', 'delivered'] } };
+    let query = { status: { $in: ['confirmed', 'delivered'] } };
 
     if (startDate && endDate) {
       query.orderDate = {
@@ -938,7 +938,7 @@ router.get('/export/:type', protect, async (req, res) => {
   try {
     const { type } = req.params;
     const { startDate, endDate } = req.query;
-    let query = { status: { $in: ['confirmed', 'shipped', 'delivered'] } };
+    let query = { status: { $in: ['confirmed', 'delivered'] } };
 
     if (startDate && endDate) {
       query.orderDate = {

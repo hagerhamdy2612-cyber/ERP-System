@@ -44,7 +44,7 @@ const salesOrderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'in-production', 'shipped', 'delivered', 'cancelled'],
+    enum: ['pending', 'confirmed', 'in-production', 'delivered', 'cancelled'],
     default: 'pending'
   },
   orderDate: {

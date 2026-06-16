@@ -3,14 +3,26 @@ const { body, validationResult } = require('express-validator');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const PayrollRecord = require('../models/PayrollRecord');
 const { protect, authorize, authorizeAdminOrHR, authorizeEmployeeManagement } = require('../middleware/auth');
 const { archiveDocument } = require('../services/archiveService');
+const { logActivity } = require('../utils/logActivity');
 const moment = require('moment');
 const { isOptionalPhoneValid, PHONE_VALIDATION_MESSAGE } = require('../utils/phoneValidation');
 const {
-  calculateAttendanceMetrics,
   calculateWorkingHoursDisplay,
 } = require('../utils/attendanceMetrics');
+const {
+  ATTENDANCE_STATE,
+  getBusinessDayStart,
+  getBusinessDayKey,
+  getTodayBusinessRange,
+  parseRangeStart,
+  parseRangeEnd,
+  isWorkingDay,
+  countWorkingDays,
+  deriveAttendanceState
+} = require('../utils/attendancePolicy');
 
 const router = express.Router();
 
@@ -513,10 +525,7 @@ router.get('/attendance/status', protect, async (req, res) => {
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
+    const { start: today, end: endOfToday } = getTodayBusinessRange();
 
     const attendance = await Attendance.findOne({
       employee: employee._id,
@@ -634,47 +643,18 @@ router.get('/attendance', protect, async (req, res) => {
 // @access  Private
 router.post('/attendance/checkin', protect, async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Business day boundaries (single timezone strategy across all modules).
+    const { start: today, end: endOfToday } = getTodayBusinessRange();
 
-    // Find employee by user ID
-    let employee = await Employee.findOne({ user: req.user.id });
-    
+    // Find employee by user ID. Never auto-create from attendance.
+    const employee = await Employee.findOne({ user: req.user.id });
+
     if (!employee) {
-      // Create employee record for existing user if it doesn't exist
-      // Find the highest existing employee ID and increment it
-      const lastEmployee = await Employee.findOne().sort({ employeeId: -1 });
-      let nextId = 1;
-      if (lastEmployee && lastEmployee.employeeId) {
-        const lastId = parseInt(lastEmployee.employeeId.replace('EMP', ''));
-        nextId = lastId + 1;
-      }
-      const employeeId = `EMP${String(nextId).padStart(4, '0')}`;
-      
-      try {
-        employee = await Employee.create({
-          user: req.user.id,
-          employeeId: employeeId,
-          position: req.user.role === 'admin' ? 'Administrator' : 
-                    req.user.role === 'manager' ? 'Manager' : 'Employee',
-          department: req.user.department || 'HR',
-          hireDate: req.user.createdAt || new Date(),
-          salary: 0,
-          holidays: 0,
-          personalInfo: {
-            phone: ''
-          },
-          isActive: true
-        });
-      } catch (createError) {
-        console.error('Error creating employee record:', createError);
-        throw createError;
-      }
+      return res.status(404).json({
+        success: false,
+        message: 'Employee profile is missing. Please contact HR.'
+      });
     }
-
-    // Check if already checked in today - use date range properly
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
 
     const existingAttendance = await Attendance.findOne({
       employee: employee._id,
@@ -735,43 +715,17 @@ router.post('/attendance/checkin', protect, async (req, res) => {
 // @access  Private
 router.post('/attendance/checkout', protect, async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Business day boundaries (single timezone strategy across all modules).
+    const { start: today, end: endOfToday } = getTodayBusinessRange();
 
-    // Find employee by user ID
-    let employee = await Employee.findOne({ user: req.user.id });
+    // Find employee by user ID. Never auto-create from attendance.
+    const employee = await Employee.findOne({ user: req.user.id });
     if (!employee) {
-      // Create employee record for existing user if it doesn't exist
-      console.log('Creating employee record for user:', req.user.id);
-      // Find the highest existing employee ID and increment it
-      const lastEmployee = await Employee.findOne().sort({ employeeId: -1 });
-      let nextId = 1;
-      if (lastEmployee && lastEmployee.employeeId) {
-        const lastId = parseInt(lastEmployee.employeeId.replace('EMP', ''));
-        nextId = lastId + 1;
-      }
-      const employeeId = `EMP${String(nextId).padStart(4, '0')}`;
-      
-      employee = await Employee.create({
-        user: req.user.id,
-        employeeId: employeeId,
-        position: req.user.role === 'admin' ? 'Administrator' : 
-                  req.user.role === 'manager' ? 'Manager' : 'Employee',
-        department: req.user.department || 'HR',
-        hireDate: req.user.createdAt || new Date(),
-        salary: 0,
-        holidays: 0,
-        personalInfo: {
-          phone: ''
-        },
-        isActive: true
+      return res.status(404).json({
+        success: false,
+        message: 'Employee profile is missing. Please contact HR.'
       });
-      console.log('Employee record created for existing user:', employee._id);
     }
-
-    // Find today's attendance record - use date range properly
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
 
     const attendance = await Attendance.findOne({
       employee: employee._id,
@@ -960,12 +914,141 @@ router.get('/managers/public', async (req, res) => {
   }
 });
 
+// @route   PATCH /api/hr/attendance/:id
+// @desc    HR/Admin correction of an attendance record (resolve incomplete records).
+//          Allowed: add/clear checkOut, add/clear checkIn (mark absent), set status.
+//          Every correction is audit-logged and marks the period's payroll dirty.
+// @access  Private (Admin/HR)
+router.patch('/attendance/:id', protect, authorizeAdminOrHR, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid attendance id' });
+    }
+
+    const attendance = await Attendance.findById(id);
+    if (!attendance) {
+      return res.status(404).json({ success: false, message: 'Attendance record not found' });
+    }
+
+    const previousState = {
+      checkIn: attendance.checkIn,
+      checkOut: attendance.checkOut,
+      status: attendance.status
+    };
+
+    const body = req.body || {};
+
+    if (Object.prototype.hasOwnProperty.call(body, 'checkIn')) {
+      if (body.checkIn === null || body.checkIn === '') {
+        attendance.checkIn = null; // removing checkIn effectively marks the day absent
+      } else {
+        const dt = new Date(body.checkIn);
+        if (Number.isNaN(dt.getTime())) {
+          return res.status(400).json({ success: false, message: 'Invalid checkIn value' });
+        }
+        attendance.checkIn = dt;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'checkOut')) {
+      if (body.checkOut === null || body.checkOut === '') {
+        attendance.checkOut = null;
+      } else {
+        const dt = new Date(body.checkOut);
+        if (Number.isNaN(dt.getTime())) {
+          return res.status(400).json({ success: false, message: 'Invalid checkOut value' });
+        }
+        attendance.checkOut = dt;
+      }
+    }
+
+    if (body.status !== undefined) {
+      const allowedStatuses = ['present', 'absent', 'late', 'half-day'];
+      if (!allowedStatuses.includes(body.status)) {
+        return res.status(400).json({ success: false, message: 'Invalid attendance status' });
+      }
+      attendance.status = body.status;
+    }
+
+    if (body.notes !== undefined) {
+      attendance.notes = body.notes;
+    }
+
+    // pre-save recomputes workingHours/overtime from checkIn/checkOut.
+    await attendance.save();
+
+    // Mark the affected payroll period as stale so it must be recalculated
+    // before approval (it cannot be approved while dirty).
+    const businessDay = getBusinessDayStart(attendance.date);
+    const periodYear = businessDay.getUTCFullYear();
+    const periodMonth = businessDay.getUTCMonth() + 1;
+    const dirtyResult = await PayrollRecord.updateMany(
+      {
+        employee: attendance.employee,
+        periodYear,
+        periodMonth,
+        status: { $in: ['draft', 'needs_review'] }
+      },
+      { $set: { requiresRegeneration: true } }
+    );
+
+    // Audit trail: who changed what, previous vs new state.
+    await logActivity({
+      userId: req.user.id,
+      action: 'MANUAL_EDIT',
+      module: 'HR',
+      entityId: attendance._id,
+      entityType: 'Attendance',
+      oldData: {
+        employeeId: attendance.employee,
+        date: attendance.date,
+        checkIn: previousState.checkIn,
+        checkOut: previousState.checkOut,
+        status: previousState.status
+      },
+      newData: {
+        employeeId: attendance.employee,
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status
+      },
+      req
+    });
+
+    await attendance.populate({
+      path: 'employee',
+      select: 'employeeId user position department',
+      populate: { path: 'user', select: '_id name email' }
+    });
+
+    res.json({
+      success: true,
+      data: withCalculatedWorkingHours(attendance),
+      payrollMarkedDirty: dirtyResult.modifiedCount || 0
+    });
+  } catch (error) {
+    console.error('Attendance correction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
 // @route   GET /api/hr/attendance/report
 // @desc    Get unified attendance & punctuality report with lateness, early departure, and absence metrics
 // @access  Private
 router.get('/attendance/report', protect, async (req, res) => {
   try {
     const { dateFrom, dateTo, employeeId, departmentId } = req.query;
+    // mode=calendar (default): one row per working day, missing days => Absent.
+    // mode=recordsOnly: only real stored Attendance documents, no synthetic rows.
+    const mode = String(req.query.mode || 'calendar').toLowerCase() === 'recordsonly'
+      ? 'recordsOnly'
+      : 'calendar';
 
     // Validate date range
     if (!dateFrom || !dateTo) {
@@ -975,9 +1058,10 @@ router.get('/attendance/report', protect, async (req, res) => {
       });
     }
 
-    // Parse dates
-    const startDate = new Date(dateFrom + 'T00:00:00.000Z');
-    const endDate = new Date(dateTo + 'T23:59:59.999Z');
+    // Parse dates via the shared business-day policy so the report interprets
+    // days exactly like check-in/out and payroll.
+    const startDate = parseRangeStart(dateFrom);
+    const endDate = parseRangeEnd(dateTo);
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return res.status(400).json({
@@ -1063,37 +1147,19 @@ router.get('/attendance/report', protect, async (req, res) => {
       .populate('user', 'name email department')
       .select('employeeId user department');
 
-    const WORKING_DAYS_PER_MONTH = 26;
-    const isScheduledWorkingDay = (dateValue) => {
-      const dt = new Date(dateValue);
-      return dt.getUTCDate() <= WORKING_DAYS_PER_MONTH;
-    };
-    const getScheduledWorkingDays = (start, end) => {
-      let workingDays = 0;
-      const currentDate = new Date(start);
-      while (currentDate <= end) {
-        if (isScheduledWorkingDay(currentDate)) {
-          workingDays++;
-        }
-        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      }
-      return workingDays;
-    };
+    // Total scheduled working days in range (weekends excluded), via shared policy.
+    const totalWorkingDays = countWorkingDays(startDate, endDate);
 
-    const totalWorkingDays = getScheduledWorkingDays(startDate, endDate);
-
-    // Group attendance by employee/day so absence math is deterministic
-    // even if there are duplicate/mixed records on the same day.
+    // Group attendance by employee/day so results are deterministic even if there
+    // are duplicate/mixed records on the same day. Keep one representative record
+    // per day, preferring a complete (checkIn + checkOut) record.
     const employeeDaySummaryMap = new Map();
     const employeeInfoMap = new Map();
     attendanceRecords.forEach((record) => {
       if (!record.employee || !record.employee.user) return;
       const empId = record.employee._id.toString();
-      const dateStr = record.date.toISOString().split('T')[0];
-      const hasCheckIn = Boolean(record.checkIn);
-      const hasCheckOut = Boolean(record.checkOut);
-      const isExplicitAbsent = String(record.status || '').toLowerCase() === 'absent';
-      const isComplete = hasCheckIn && hasCheckOut;
+      const dateStr = getBusinessDayKey(record.date);
+      const isComplete = Boolean(record.checkIn) && Boolean(record.checkOut);
 
       if (!employeeInfoMap.has(empId)) {
         employeeInfoMap.set(empId, {
@@ -1106,19 +1172,8 @@ router.get('/attendance/report', protect, async (req, res) => {
         employeeDaySummaryMap.set(empId, new Map());
       }
       const dayMap = employeeDaySummaryMap.get(empId);
-      const current = dayMap.get(dateStr) || {
-        hasAnyRecord: false,
-        hasCompleteRecord: false,
-        hasExplicitAbsent: false,
-        // Keep one deterministic representative row per employee/day.
-        representativeRecord: null
-      };
+      const current = dayMap.get(dateStr) || { representativeRecord: null };
 
-      current.hasAnyRecord = true;
-      current.hasCompleteRecord = current.hasCompleteRecord || (hasCheckIn && hasCheckOut);
-      current.hasExplicitAbsent = current.hasExplicitAbsent || isExplicitAbsent;
-
-      // Prefer a complete record over incomplete ones for the same day.
       if (!current.representativeRecord) {
         current.representativeRecord = record;
       } else {
@@ -1131,120 +1186,120 @@ router.get('/attendance/report', protect, async (req, res) => {
       dayMap.set(dateStr, current);
     });
 
-    // Calculate absent days for each employee
-    const absentDaysMap = new Map();
-    
-    allEmployees.forEach(employee => {
-      if (!employee.user) return;
-      
-      const empId = employee._id.toString();
-      const dayMap = employeeDaySummaryMap.get(empId) || new Map();
-
-      let absentDays = 0;
-      const currentDate = new Date(startDate);
-      while (currentDate <= endDate) {
-        if (isScheduledWorkingDay(currentDate)) {
-          const dateStr = currentDate.toISOString().split('T')[0];
-          const daySummary = dayMap.get(dateStr);
-          // Absent if: no record OR explicit absent OR no complete check-in/out record.
-          if (!daySummary || daySummary.hasExplicitAbsent || !daySummary.hasCompleteRecord) {
-            absentDays++;
-          }
-        }
-        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      }
-      
-      const absencePercentage = totalWorkingDays > 0 
-        ? ((absentDays / totalWorkingDays) * 100).toFixed(2) 
-        : '0.00';
-      
-      absentDaysMap.set(empId, {
-        totalAbsentDays: absentDays,
-        absencePercentage: parseFloat(absencePercentage)
-      });
-    });
-
-    // Build unified report data
-    const reportData = [];
-
     const formatTime = (dateTime) => {
       if (!dateTime) return null;
       const dt = new Date(dateTime);
       return dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
-    const EARLY_LEAVE_THRESHOLD_MINUTES = 10; // Before 04:50 PM (vs 05:00 PM shift end).
-    const statusMap = {
-      present: 'Present',
-      absent: 'Absent',
-      late: 'Late',
-      'half-day': 'Half-Day',
-      'early-leave': 'Early Leave',
-      'off-day': 'OFF_DAY'
-    };
 
-    // Build one deterministic row per employee/day in range:
-    // - days 1..26 are scheduled working days
-    // - days 27+ are OFF_DAY and never absent
+    // Absent days per employee, using the unified state machine. Incomplete days
+    // are NOT counted as absence (kept consistent with payroll).
+    const absentDaysMap = new Map();
     allEmployees.forEach((employee) => {
       if (!employee.user) return;
       const empId = employee._id.toString();
       const dayMap = employeeDaySummaryMap.get(empId) || new Map();
-      const absentData = absentDaysMap.get(empId) || { totalAbsentDays: 0, absencePercentage: 0 };
-      const employeeInfo = employeeInfoMap.get(empId) || {
-        employeeId: employee.employeeId,
-        employeeName: employee.user.name
-      };
 
-      const currentDate = new Date(startDate);
-      while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        const daySummary = dayMap.get(dateStr);
-        const record = daySummary?.representativeRecord || null;
-        const isWorkingDay = isScheduledWorkingDay(currentDate);
-
-        const metrics = calculateAttendanceMetrics({
-          checkIn: record?.checkIn || null,
-          checkOut: record?.checkOut || null,
-          attendanceDate: record?.date || currentDate
-        });
-
-        const minutesLate = metrics.lateMinutes;
-        const minutesEarly = metrics.earlyMinutes;
-
-        let status = 'present';
-        if (!isWorkingDay) {
-          status = 'off-day';
-        } else if (!record?.checkIn || !record?.checkOut || daySummary?.hasExplicitAbsent) {
-          status = 'absent';
-        } else if (minutesLate > 0) {
-          status = 'late';
-        } else if (minutesEarly > EARLY_LEAVE_THRESHOLD_MINUTES) {
-          status = 'early-leave';
+      let absentDays = 0;
+      let cursor = getBusinessDayStart(startDate);
+      const last = getBusinessDayStart(endDate);
+      while (cursor <= last) {
+        if (isWorkingDay(cursor)) {
+          const dateStr = getBusinessDayKey(cursor);
+          const record = dayMap.get(dateStr)?.representativeRecord || null;
+          const { state } = deriveAttendanceState({
+            checkIn: record?.checkIn || null,
+            checkOut: record?.checkOut || null,
+            attendanceDate: cursor,
+            hasRecord: Boolean(record),
+            workingDay: true
+          });
+          if (state === ATTENDANCE_STATE.ABSENT) absentDays += 1;
         }
-
-        const displayStatus = statusMap[status] || 'Present';
-        const isOffDay = status === 'off-day';
-
-        reportData.push({
-          employeeId: employeeInfo.employeeId,
-          employeeName: employeeInfo.employeeName,
-          date: dateStr,
-          checkIn: formatTime(record?.checkIn) || 'N/A',
-          checkOut: formatTime(record?.checkOut) || 'N/A',
-          status: displayStatus,
-          totalWorkingHours: isOffDay ? '00:00' : metrics.workingHoursDisplay,
-          minutesLate: isOffDay ? 0 : minutesLate,
-          minutesEarly: isOffDay ? 0 : minutesEarly,
-          overtimeMinutes: isOffDay ? 0 : metrics.overtimeMinutes,
-          overtime: isOffDay ? '00:00' : metrics.overtimeDisplay,
-          overtimeHours: isOffDay ? 0 : metrics.overtimeHoursDecimal,
-          totalAbsentDays: absentData.totalAbsentDays,
-          absencePercentage: absentData.absencePercentage
-        });
-
-        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
       }
+
+      const absencePercentage = totalWorkingDays > 0
+        ? parseFloat(((absentDays / totalWorkingDays) * 100).toFixed(2))
+        : 0;
+
+      absentDaysMap.set(empId, { totalAbsentDays: absentDays, absencePercentage });
     });
+
+    // Build a single report row from a derived state (shared by both modes).
+    const buildRow = (employeeInfo, dateStr, record, derived, absentData) => {
+      const isOffDay = derived.state === ATTENDANCE_STATE.OFF_DAY;
+      const m = derived.metrics;
+      return {
+        employeeId: employeeInfo.employeeId,
+        employeeName: employeeInfo.employeeName,
+        date: dateStr,
+        checkIn: formatTime(record?.checkIn) || 'N/A',
+        checkOut: formatTime(record?.checkOut) || 'N/A',
+        status: derived.state,
+        totalWorkingHours: m.workingHoursDisplay,
+        minutesLate: isOffDay ? 0 : m.lateMinutes,
+        minutesEarly: isOffDay ? 0 : m.earlyMinutes,
+        overtimeMinutes: isOffDay ? 0 : m.overtimeMinutes,
+        overtime: m.overtimeDisplay,
+        overtimeHours: isOffDay ? 0 : m.overtimeHoursDecimal,
+        totalAbsentDays: absentData.totalAbsentDays,
+        absencePercentage: absentData.absencePercentage
+      };
+    };
+
+    const reportData = [];
+
+    if (mode === 'recordsOnly') {
+      // Only real stored Attendance documents — no synthetic Absent/OFF_DAY rows.
+      attendanceRecords.forEach((record) => {
+        if (!record.employee || !record.employee.user) return;
+        const empId = record.employee._id.toString();
+        const employeeInfo = employeeInfoMap.get(empId) || {
+          employeeId: record.employee.employeeId,
+          employeeName: record.employee.user.name
+        };
+        const absentData = absentDaysMap.get(empId) || { totalAbsentDays: 0, absencePercentage: 0 };
+        const derived = deriveAttendanceState({
+          checkIn: record.checkIn || null,
+          checkOut: record.checkOut || null,
+          attendanceDate: record.date,
+          hasRecord: true
+        });
+        reportData.push(buildRow(employeeInfo, getBusinessDayKey(record.date), record, derived, absentData));
+      });
+    } else {
+      // Calendar mode: one row per working day in range; missing => Absent,
+      // weekend => OFF_DAY. Employees with no records in range are skipped so a
+      // cleared database does not synthesize a full grid of Absent rows.
+      allEmployees.forEach((employee) => {
+        if (!employee.user) return;
+        const empId = employee._id.toString();
+        const dayMap = employeeDaySummaryMap.get(empId) || new Map();
+        if (dayMap.size === 0) return;
+        const absentData = absentDaysMap.get(empId) || { totalAbsentDays: 0, absencePercentage: 0 };
+        const employeeInfo = employeeInfoMap.get(empId) || {
+          employeeId: employee.employeeId,
+          employeeName: employee.user.name
+        };
+
+        let cursor = getBusinessDayStart(startDate);
+        const last = getBusinessDayStart(endDate);
+        while (cursor <= last) {
+          const dateStr = getBusinessDayKey(cursor);
+          const record = dayMap.get(dateStr)?.representativeRecord || null;
+          const derived = deriveAttendanceState({
+            checkIn: record?.checkIn || null,
+            checkOut: record?.checkOut || null,
+            attendanceDate: cursor,
+            hasRecord: Boolean(record),
+            workingDay: isWorkingDay(cursor)
+          });
+          reportData.push(buildRow(employeeInfo, dateStr, record, derived, absentData));
+          cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+        }
+      });
+    }
 
     // Sort by employee name and date
     reportData.sort((a, b) => {
@@ -1258,7 +1313,8 @@ router.get('/attendance/report', protect, async (req, res) => {
       success: true,
       count: reportData.length,
       data: reportData,
-      totalWorkingDays: totalWorkingDays
+      totalWorkingDays: totalWorkingDays,
+      mode
     });
   } catch (error) {
     console.error('Attendance report error:', error);
