@@ -15,6 +15,7 @@ export const translateNavigationItem = (name, t) => {
     'Suppliers': t('navigation.suppliers'),
     'Raw Materials': t('navigation.rawMaterials'),
     'Final Products': t('navigation.finalProducts'),
+    'Others': t('navigation.others'),
     'HR': t('navigation.hr'),
     'Sales': t('navigation.sales'),
     'Purchasing': t('navigation.purchasing'),

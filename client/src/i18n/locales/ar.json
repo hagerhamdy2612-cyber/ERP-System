@@ -653,7 +653,8 @@
       "editProduct": "تعديل منتج",
       "noProducts": "لا توجد منتجات",
       "deleteConfirm": "هل أنت متأكد من حذف هذا المنتج؟",
-      "searchPlaceholder": "البحث عن المنتجات بالاسم أو الرمز..."
+      "searchPlaceholder": "البحث عن المنتجات بالاسم أو الرمز...",
+      "noSearchResults": "لا توجد منتجات مطابقة للبحث"
     },
     "errors": {
       "fetchFailed": "فشل في جلب المنتجات",
@@ -733,6 +734,29 @@
         "deleteFailed": "فشل حذف المنتج النهائي"
       }
     },
+    "others": {
+      "title": "أخرى",
+      "description": "مخزون متنوع (مستلزمات، تغليف، أدوات، إلخ)",
+      "add": "إضافة عنصر",
+      "edit": "تعديل عنصر",
+      "noItems": "لا توجد عناصر بعد",
+      "currentStock": "المخزون الحالي",
+      "itemName": "اسم العنصر",
+      "sku": "رمز الصنف",
+      "unit": "الوحدة",
+      "descriptionLabel": "الوصف",
+      "deleteConfirm": "هل أنت متأكد من حذف هذا العنصر؟",
+      "messages": {
+        "created": "تم إنشاء العنصر بنجاح",
+        "updated": "تم تحديث العنصر بنجاح",
+        "deleted": "تم حذف العنصر بنجاح"
+      },
+      "errors": {
+        "fetchFailed": "فشل تحميل العناصر",
+        "saveFailed": "فشل حفظ العنصر",
+        "deleteFailed": "فشل حذف العنصر"
+      }
+    },
     "dashboard": {
       "title": "لوحة تحكم المخزون",
       "description": "نظرة عامة على مستويات المخزون وإدارة المخزون",
@@ -748,7 +772,8 @@
       "stock": "المخزون",
       "min": "الحد الأدنى",
       "categoryRawMaterial": "مواد خام",
-      "categoryFinalProduct": "منتجات نهائية"
+      "categoryFinalProduct": "منتجات نهائية",
+      "categoryOthers": "أخرى"
     },
     "reports": {
       "title": "تقارير المخزون",

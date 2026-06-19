@@ -4,10 +4,9 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const PayrollRecord = require('../models/PayrollRecord');
-const { protect, authorize, authorizeAdminOrHR, authorizeEmployeeManagement } = require('../middleware/auth');
+const { protect, authorizeAdminOrHR, authorizeEmployeeManagement } = require('../middleware/auth');
 const { archiveDocument } = require('../services/archiveService');
 const { logActivity } = require('../utils/logActivity');
-const moment = require('moment');
 const { isOptionalPhoneValid, PHONE_VALIDATION_MESSAGE } = require('../utils/phoneValidation');
 const {
   calculateWorkingHoursDisplay,
@@ -40,17 +39,12 @@ function withCalculatedWorkingHours(attendanceDoc) {
 // @access  Public
 router.get('/employees', async (req, res) => {
   try {
-    console.log('Fetching employees...');
-    // Fetch Employee records with populated user data
     const employees = await Employee.find()
       .populate('user', 'name email role department isActive createdAt')
       .sort({ createdAt: -1 });
 
-    console.log('Found employees:', employees.length);
-
-    // Transform employees for the frontend - filter out employees without users
     const employeesData = employees
-      .filter((employee) => employee.user) // Only include employees with valid users
+      .filter((employee) => employee.user)
       .map((employee) => ({
         _id: employee.user._id,
         employeeId: employee.employeeId,
@@ -75,47 +69,6 @@ router.get('/employees', async (req, res) => {
         updatedAt: employee.updatedAt
       }));
 
-    // Also get users without employee records and add them
-    const allUsers = await User.find()
-      .select('name email role department isActive createdAt')
-      .sort({ createdAt: -1 });
-    
-    const usersWithoutEmployees = allUsers.filter(user => 
-      !employees.some(emp => emp.user && emp.user._id.toString() === user._id.toString())
-    );
-
-    // Add users without employee records as employees with default values
-    usersWithoutEmployees.forEach((user, index) => {
-      const userEmployeeId = `EMP${String(employees.length + index + 1).padStart(4, '0')}`;
-      employeesData.push({
-        _id: user._id,
-        employeeId: userEmployeeId,
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          department: user.department,
-          isActive: user.isActive
-        },
-        position: user.role === 'admin' ? 'Administrator' : 
-                  user.role === 'manager' ? 'Manager' : 'Employee',
-        department: user.department,
-        salary: 0,
-        hireDate: user.createdAt,
-        holidays: 0,
-        personalInfo: {
-          phone: ''
-        },
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      });
-    });
-
-    // Sort by creation date descending
-    employeesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
     res.json({
       success: true,
       count: employeesData.length,
@@ -126,98 +79,6 @@ router.get('/employees', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
-    });
-  }
-});
-
-// @route   GET /api/hr/employees/test
-// @desc    Test route to check database
-// @access  Public
-router.get('/employees/test', async (req, res) => {
-  try {
-    console.log('=== TESTING DATABASE ===');
-    
-    // Check users
-    const userCount = await User.countDocuments();
-    console.log('Total users in database:', userCount);
-    
-    // Check employees
-    const employeeCount = await Employee.countDocuments();
-    console.log('Total employees in database:', employeeCount);
-    
-    // Get all users
-    const users = await User.find().select('name email role department');
-    console.log('All users:', users);
-    
-    // Get all employees
-    const employees = await Employee.find().populate('user', 'name email role');
-    console.log('All employees:', employees);
-    
-    res.json({
-      success: true,
-      userCount,
-      employeeCount,
-      users,
-      employees
-    });
-  } catch (error) {
-    console.error('Test route error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Test route error',
-      error: error.message
-    });
-  }
-});
-
-// @route   POST /api/hr/employees/test
-// @desc    Test creating a simple user
-// @access  Public
-router.post('/employees/test', async (req, res) => {
-  try {
-    console.log('=== TESTING USER CREATION ===');
-    console.log('Request body:', req.body);
-    
-    const { name, email, password, role, department } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this email already exists'
-      });
-    }
-    
-    console.log('Creating user...');
-    const user = await User.create({
-      name,
-      email,
-      password,
-      role: role || 'employee',
-      department
-    });
-    console.log('User created successfully:', user._id);
-    
-    res.json({
-      success: true,
-      message: 'User created successfully',
-      data: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        department: user.department
-      }
-    });
-  } catch (error) {
-    console.error('Test user creation error:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      message: 'Test user creation failed',
-      error: error.message
     });
   }
 });
@@ -258,9 +119,6 @@ router.post('/employees', [
     }
 
     // Create user
-    console.log('Creating user with data:', { name, email, role, department });
-    
-    // Validate department against enum values
     const validDepartments = ['HR', 'Manufacturing', 'SCM', 'CRM', 'Sales', 'Inventory', 'Purchasing', 'Finance'];
     if (!validDepartments.includes(department)) {
       return res.status(400).json({
@@ -276,7 +134,6 @@ router.post('/employees', [
       role: role || 'employee',
       department
     });
-    console.log('User created:', user._id);
 
     // Create corresponding employee record for attendance system - MANDATORY
     let employee = null;
@@ -304,7 +161,6 @@ router.post('/employees', [
         },
         isActive: true
       });
-      console.log('Employee record created successfully:', employee._id);
     } catch (employeeError) {
       console.error('CRITICAL: Employee record creation failed:', employeeError);
       
@@ -343,18 +199,13 @@ router.post('/employees', [
       updatedAt: employee.updatedAt
     };
 
-    console.log('User transformed to employee data:', employeeData);
-
     res.status(201).json({
       success: true,
       message: 'Employee created successfully with attendance access',
       data: employeeData
     });
-    console.log('Response sent successfully');
   } catch (error) {
     console.error('Create employee error:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -417,7 +268,7 @@ router.put('/employees/:id', [
           message: 'Password must be at least 6 characters'
         });
       }
-      user.password = password; // Password will be hashed by the pre-save hook
+      user.password = password; // Password will be hashed 3shan el pre-save hook
     }
     
     await user.save();
@@ -870,30 +721,6 @@ router.get('/managers/:department', protect, async (req, res) => {
 // @desc    Get all managers
 // @access  Private
 router.get('/managers', protect, async (req, res) => {
-  try {
-    const managers = await User.find({
-      role: 'manager',
-      isActive: true
-    }).select('name email department role');
-
-    res.json({
-      success: true,
-      count: managers.length,
-      data: managers
-    });
-  } catch (error) {
-    console.error('Get managers error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
-
-// @route   GET /api/hr/managers/public
-// @desc    Get all managers (public for testing)
-// @access  Public
-router.get('/managers/public', async (req, res) => {
   try {
     const managers = await User.find({
       role: 'manager',

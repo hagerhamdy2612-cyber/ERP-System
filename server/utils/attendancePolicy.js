@@ -1,24 +1,4 @@
-/**
- * Single source of truth for attendance + payroll business rules.
- *
- * Both the Attendance Report (server/routes/hr.js) and Payroll
- * (server/services/payrollService.js) MUST use these helpers so the same
- * employee/day is always interpreted identically across modules.
- *
- * Design decisions:
- * - One business timezone strategy. A "business day" is a calendar day in the
- *   configured business timezone, represented canonically as the UTC-midnight
- *   Date of that day key (so Attendance.date, report ranges, and payroll ranges
- *   all line up). Configure the offset with BUSINESS_UTC_OFFSET_MINUTES.
- * - Weekends are derived dynamically (no fixed "first 26 days" rule).
- * - One attendance state machine used everywhere.
- */
-
 const { calculateAttendanceMetrics } = require('./attendanceMetrics');
-
-// Minutes to add to a UTC instant to get business-local wall clock.
-// Default 0 keeps everything in UTC (matches the existing report/list endpoints
-// which already parse dates with a trailing 'Z'). Set e.g. 180 for UTC+3.
 const BUSINESS_UTC_OFFSET_MINUTES =
   Number.parseInt(process.env.BUSINESS_UTC_OFFSET_MINUTES, 10) || 0;
 

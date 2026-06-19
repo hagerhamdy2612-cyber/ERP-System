@@ -70,9 +70,8 @@ const authorizeAdminOrHR = (req, res, next) => {
 const authorizeEmployeeManagement = (req, res, next) => {
   if (req.user.role === 'admin' || req.user.role === 'manager') {
     next();
-  } else if (req.user.role === 'employee' && req.user.department !== 'HR') {
-    next();
-  } else {
+  }
+    else {
     return res.status(403).json({
       success: false,
       message: 'Access denied. Only administrators, managers, and non-HR employees can perform this action'

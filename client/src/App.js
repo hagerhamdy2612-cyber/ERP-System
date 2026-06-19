@@ -35,6 +35,7 @@ import InventoryDashboard from './pages/Inventory/Dashboard';
 import RawMaterials from './pages/Inventory/RawMaterials';
 import FinishedProducts from './pages/Inventory/FinishedProducts';
 import InventoryReports from './pages/Inventory/Reports';
+import Others from './pages/Inventory/Others';
 import PurchasingDashboard from './pages/Purchasing/Dashboard';
 import PurchasingOrders from './pages/Purchasing/Orders';
 import PurchasingReports from './pages/Purchasing/Reports';
@@ -304,7 +305,11 @@ function App() {
                 </ProtectedDashboardRoute>
               } />
               <Route path="inventory/products" element={<Navigate to="/app/inventory/raw-materials" replace />} />
-              <Route path="inventory/others" element={<Navigate to="/app/inventory/raw-materials" replace />} />
+              <Route path="inventory/others" element={
+                <ProtectedModuleRoute module="inventory">
+                  <Others />
+                </ProtectedModuleRoute>
+              } />
               <Route path="inventory/raw-materials" element={
                 <ProtectedModuleRoute module="inventory">
                   <RawMaterials />

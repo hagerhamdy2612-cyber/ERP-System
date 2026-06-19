@@ -86,6 +86,7 @@ const Layout = () => {
         { name: 'Dashboard', href: '/app/inventory/dashboard' },
         { name: 'Raw Materials', href: '/app/inventory/raw-materials' },
         { name: 'Final Products', href: '/app/inventory/finished-products' },
+        { name: 'Others', href: '/app/inventory/others' },
         { name: 'Reports', href: '/app/inventory/reports' },
         { name: 'Attendance', href: '/app/inventory/attendance' }
       ]

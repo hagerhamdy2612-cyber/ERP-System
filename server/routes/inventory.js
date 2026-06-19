@@ -320,6 +320,9 @@ router.get('/low-stock', protect, async (req, res) => {
   }
 });
 
+// Miscellaneous inventory — mount before /products/:id param routes
+router.use('/others', require('./inventoryOthers'));
+
 // @route   DELETE /api/inventory/products/:id
 // @desc    Delete product
 // @access  Private (Inventory, Admin)

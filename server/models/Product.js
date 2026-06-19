@@ -15,7 +15,7 @@ const productSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['raw-material', 'final-product'],
+    enum: ['raw-material', 'final-product', 'others'],
     required: true
   },
   unit: {

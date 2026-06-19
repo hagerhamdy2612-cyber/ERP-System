@@ -7,7 +7,6 @@ const schedulerService = require('./services/schedulerService');
 
 // Load environment variables
 dotenv.config({ path: './config.env' });
-console.log("JWT_SECRET =", process.env.JWT_SECRET);
 
 const app = express();
 
@@ -18,27 +17,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
-.then(async () => {
-  console.log('MongoDB connected successfully');
-  try {
-    const Product = require('./models/Product');
-    const fg = await Product.updateMany(
-      { category: 'finished-good' },
-      { $set: { category: 'final-product' } }
-    );
-    const rest = await Product.updateMany(
-      { category: { $nin: ['raw-material', 'final-product'] } },
-      { $set: { category: 'raw-material' } }
-    );
-    const n = (fg.modifiedCount || 0) + (rest.modifiedCount || 0);
-    if (n > 0) {
-      console.log(`Product categories: migrated ${n} legacy row(s) (finished-good → final-product; other legacy → raw-material).`);
-    }
-  } catch (e) {
-    console.error('Product category migration:', e.message);
-  }
-})
-.catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -88,14 +67,10 @@ app.listen(PORT, () => {
   // Start the scheduler service
   try {
     schedulerService.start();
-    console.log('Scheduler service started successfully');
-    // Run once immediately so existing low-stock raw materials get POs without waiting for the hourly job
-    // or without saving a "new" product to trigger hooks.
     schedulerService.generateAutoPurchaseOrders().catch((err) => {
       console.error('Initial auto-purchase run after startup:', err);
     });
   } catch (error) {
     console.error('Error starting scheduler service:', error);
-    console.log('Server will continue without scheduler service');
   }
 });

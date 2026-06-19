@@ -645,7 +645,8 @@
       "editProduct": "Edit Product",
       "noProducts": "No products found",
       "deleteConfirm": "Are you sure you want to delete this product?",
-      "searchPlaceholder": "Search products by name or SKU..."
+      "searchPlaceholder": "Search products by name or SKU...",
+      "noSearchResults": "No products match your search"
     },
     "errors": {
       "fetchFailed": "Failed to fetch products",
@@ -725,6 +726,29 @@
         "deleteFailed": "Failed to delete finished product"
       }
     },
+    "others": {
+      "title": "Others",
+      "description": "Miscellaneous inventory (supplies, packaging, tools, etc.)",
+      "add": "Add Item",
+      "edit": "Edit Item",
+      "noItems": "No items yet",
+      "currentStock": "Current Stock",
+      "itemName": "Item Name",
+      "sku": "SKU",
+      "unit": "Unit",
+      "descriptionLabel": "Description",
+      "deleteConfirm": "Are you sure you want to delete this item?",
+      "messages": {
+        "created": "Item created successfully",
+        "updated": "Item updated successfully",
+        "deleted": "Item deleted successfully"
+      },
+      "errors": {
+        "fetchFailed": "Failed to fetch items",
+        "saveFailed": "Failed to save item",
+        "deleteFailed": "Failed to delete item"
+      }
+    },
     "dashboard": {
       "title": "Inventory Dashboard",
       "description": "Overview of your inventory levels and stock management",
@@ -740,7 +764,8 @@
       "stock": "Stock",
       "min": "Min",
       "categoryRawMaterial": "Raw materials",
-      "categoryFinalProduct": "Final products"
+      "categoryFinalProduct": "Final products",
+      "categoryOthers": "Others"
     },
     "reports": {
       "title": "Inventory Reports",

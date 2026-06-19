@@ -26,7 +26,8 @@ const categorySlugToLabelKey = (slug) => {
   const map = {
     'raw-material': 'inventory.dashboard.categoryRawMaterial',
     'final-product': 'inventory.dashboard.categoryFinalProduct',
-    'finished-good': 'inventory.dashboard.categoryFinalProduct'
+    'finished-good': 'inventory.dashboard.categoryFinalProduct',
+    'others': 'inventory.dashboard.categoryOthers'
   };
   return map[slug] || null;
 };

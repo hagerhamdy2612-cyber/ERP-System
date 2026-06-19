@@ -1,10 +1,3 @@
-/**
- * Low / reorder for any product (in-memory):
- * - Out of stock (currentStock <= 0), OR
- * - minStockLevel > 0 and currentStock <= minStockLevel
- *
- * If minStockLevel is 0, only "out of stock" counts as low (avoids treating all positive stock as low).
- */
 function isLowStockForReorder(product) {
   if (!product) return false;
   const stock = Number(product.currentStock);
@@ -16,19 +9,13 @@ function isLowStockForReorder(product) {
   return false;
 }
 
-/**
- * After stock changes: any raw material that is low/out should run the auto-purchase sweep
- * so existing items in the DB are picked up (not only ones touched in this request).
- * Products without a supplier are skipped inside generateAutoPurchaseOrders until a supplier is set.
- */
 function shouldTriggerAutoPurchaseForProduct(product) {
   if (!product || product.category !== 'raw-material') {
     return false;
   }
   return isLowStockForReorder(product);
 }
-
-/** $expr body: out of stock OR (min > 0 and stock <= min). */
+/*out of stock OR (min > 0 and stock <= min). */
 function lowStockMongoExpr() {
   return {
     $or: [
@@ -42,11 +29,6 @@ function lowStockMongoExpr() {
     ]
   };
 }
-
-/**
- * All active raw materials that are out of stock or at/below min (when min &gt; 0).
- * Includes existing rows without a supplier so alerts/schedulers see them; PO creation still requires supplier.
- */
 function lowStockRawMaterialMongoFilter() {
   return {
     category: 'raw-material',

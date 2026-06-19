@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, AlertTriangle, Edit, Trash2, Layers } from 'lucide-react';
+import ProductSearchBar from '../../components/Inventory/ProductSearchBar';
+import { filterInventoryBySearch } from '../../utils/inventorySearch';
 
 const FinishedProducts = () => {
   const { t } = useTranslation();
   const [products, setProducts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [rawMaterials, setRawMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -149,6 +152,11 @@ const FinishedProducts = () => {
     return ((product.sellingPrice - product.unitCost) / product.sellingPrice * 100).toFixed(1);
   };
 
+  const filteredProducts = useMemo(
+    () => filterInventoryBySearch(products, searchQuery),
+    [products, searchQuery]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -191,6 +199,8 @@ const FinishedProducts = () => {
         </button>
       </div>
 
+      <ProductSearchBar value={searchQuery} onChange={setSearchQuery} />
+
       {/* Low Stock Alert */}
       {products.filter(isLowStock).length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
@@ -210,7 +220,7 @@ const FinishedProducts = () => {
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => {
+        {filteredProducts.map((product) => {
           const stockStatus = getStockStatus(product);
           const profitMargin = calculateProfitMargin(product);
           return (
@@ -243,16 +253,14 @@ const FinishedProducts = () => {
                     <span className="text-gray-900">{product.minStockLevel} {product.unit}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">{t('inventory.finishedProducts.unitCost')}</span>
-                    <span className="text-gray-900">${product.unitCost}</span>
+                    <span className="text-gray-500">{t('inventory.finishedProducts.sellingPrice')}</span>
+                    <span className="text-gray-900">
+                      {product.sellingPrice != null && product.sellingPrice > 0
+                        ? `$${product.sellingPrice}`
+                        : '—'}
+                    </span>
                   </div>
-                  {product.sellingPrice && (
-                    <div className="mt-2 flex items-center justify-between text-sm">
-                      <span className="text-gray-500">{t('inventory.finishedProducts.sellingPrice')}</span>
-                      <span className="text-gray-900">${product.sellingPrice}</span>
-                    </div>
-                  )}
-                  {product.sellingPrice && (
+                  {product.sellingPrice > 0 && (
                     <div className="mt-2 flex items-center justify-between text-sm">
                       <span className="text-gray-500">{t('inventory.finishedProducts.profitMargin')}</span>
                       <span className={`font-medium ${profitMargin > 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -262,7 +270,9 @@ const FinishedProducts = () => {
                   )}
                   <div className="mt-2 flex items-center justify-between text-sm">
                     <span className="text-gray-500">{t('inventory.finishedProducts.totalValue')}</span>
-                    <span className="text-gray-900">${(product.currentStock * product.unitCost).toLocaleString()}</span>
+                    <span className="text-gray-900">
+                      ${((product.currentStock || 0) * (product.sellingPrice || 0)).toLocaleString()}
+                    </span>
                   </div>
                   {product.requiredMaterials && product.requiredMaterials.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
@@ -306,6 +316,10 @@ const FinishedProducts = () => {
           );
         })}
       </div>
+
+      {products.length > 0 && filteredProducts.length === 0 && (
+        <p className="text-center text-gray-500 py-12">{t('inventory.products.noSearchResults')}</p>
+      )}
 
       {/* Modal */}
       {showModal && (

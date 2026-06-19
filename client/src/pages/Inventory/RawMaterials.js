@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, AlertTriangle, Edit, Trash2, Truck } from 'lucide-react';
+import ProductSearchBar from '../../components/Inventory/ProductSearchBar';
+import { filterInventoryBySearch } from '../../utils/inventorySearch';
 
 const RawMaterials = () => {
   const { t } = useTranslation();
   const [materials, setMaterials] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -121,6 +124,11 @@ const RawMaterials = () => {
     return { color: 'text-green-600', bg: 'bg-green-100', text: t('inventory.status.inStock') };
   };
 
+  const filteredMaterials = useMemo(
+    () => filterInventoryBySearch(materials, searchQuery),
+    [materials, searchQuery]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -148,6 +156,8 @@ const RawMaterials = () => {
         </button>
       </div>
 
+      <ProductSearchBar value={searchQuery} onChange={setSearchQuery} />
+
       {/* Low Stock Alert */}
       {materials.filter(isLowStock).length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
@@ -167,7 +177,7 @@ const RawMaterials = () => {
 
       {/* Materials Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {materials.map((material) => {
+        {filteredMaterials.map((material) => {
           const stockStatus = getStockStatus(material);
           return (
             <div key={material._id} className="bg-white overflow-hidden shadow rounded-lg">
@@ -238,6 +248,10 @@ const RawMaterials = () => {
           );
         })}
       </div>
+
+      {materials.length > 0 && filteredMaterials.length === 0 && (
+        <p className="text-center text-gray-500 py-12">{t('inventory.products.noSearchResults')}</p>
+      )}
 
       {/* Modal */}
       {showModal && (
