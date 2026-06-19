@@ -24,8 +24,6 @@ const HRReports = () => {
   const [reports, setReports] = useState({
     summary: null,
     departmentDistribution: null,
-    attendanceStats: null,
-    departmentAttendance: null,
     averageSalaryByDept: null
   });
 
@@ -209,70 +207,6 @@ const HRReports = () => {
                 </div>
               </div>
             ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Attendance Statistics */}
-      {reports.attendanceStats && (
-        <Card>
-          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-            {t('hr.reports.attendanceStatistics')}
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.present')}</p>
-              <p className="text-2xl font-semibold text-green-900 dark:text-green-400">{reports.attendanceStats.present}</p>
-            </div>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.absent')}</p>
-              <p className="text-2xl font-semibold text-red-900 dark:text-red-400">{reports.attendanceStats.absent}</p>
-            </div>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.late')}</p>
-              <p className="text-2xl font-semibold text-yellow-900 dark:text-yellow-400">{reports.attendanceStats.late}</p>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('hr.reports.onLeave')}</p>
-              <p className="text-2xl font-semibold text-blue-900 dark:text-blue-400">{reports.attendanceStats.onLeave}</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Department Attendance */}
-      {reports.departmentAttendance && reports.departmentAttendance.length > 0 && (
-        <Card padding={false} className="overflow-hidden">
-          <div className="px-4 py-5 sm:p-6 border-b border-gray-200 dark:border-slate-700">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-              {t('hr.reports.departmentAttendancePerformance')}
-            </h3>
-          </div>
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-              <thead className="bg-gray-50 dark:bg-slate-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.department')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.present')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.absent')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.late')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.attendanceRate')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('hr.reports.totalHours')}</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
-                {reports.departmentAttendance.map((dept, index) => (
-                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/40">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{dept.department}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{dept.present}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">{dept.absent}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600 dark:text-yellow-400">{dept.late}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dept.attendanceRate.toFixed(1)}%</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dept.totalHours.toFixed(1)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </Card>
       )}

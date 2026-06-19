@@ -5,7 +5,7 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const PayrollRecord = require('../models/PayrollRecord');
 const { protect, authorizeAdminOrHR, authorizeEmployeeManagement } = require('../middleware/auth');
-const { archiveDocument } = require('../services/archiveService');
+const { archiveDocument, deleteLinkedEmployeeForUser } = require('../services/archiveService');
 const { logActivity } = require('../utils/logActivity');
 const { isOptionalPhoneValid, PHONE_VALIDATION_MESSAGE } = require('../utils/phoneValidation');
 const {
@@ -661,6 +661,8 @@ router.delete('/employees/:id', [
       userId: req.user.id,
       reason: req.body?.reason
     });
+
+    await deleteLinkedEmployeeForUser(req.params.id);
 
     res.json({
       success: true,

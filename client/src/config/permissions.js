@@ -205,10 +205,13 @@ export const canManageEmployees = (user) => {
 // Purchasing permission helpers
 export const canCreatePurchaseOrder = (user) => {
   if (!user) return false;
-  // Admin can always create orders
   if (user.role === 'admin') return true;
-  // Only employees in Purchasing department can create orders
-  if (user.role === 'employee' && user.department === 'Purchasing') return true;
+  if (
+    user.department === 'Purchasing' &&
+    (user.role === 'employee' || user.role === 'manager')
+  ) {
+    return true;
+  }
   return false;
 };
 
@@ -223,10 +226,13 @@ export const canAcceptPurchaseOrder = (user) => {
 
 export const canReceivePurchaseOrder = (user) => {
   if (!user) return false;
-  // Admin can always receive orders
   if (user.role === 'admin') return true;
-  // Only employees in Purchasing department can receive orders
-  if (user.role === 'employee' && user.department === 'Purchasing') return true;
+  if (
+    user.department === 'Purchasing' &&
+    (user.role === 'employee' || user.role === 'manager')
+  ) {
+    return true;
+  }
   return false;
 };
 
@@ -239,6 +245,18 @@ export const canDeletePurchaseOrder = (user) => {
   if (!user) return false;
   return user.role === 'admin' || (user.role === 'manager' && user.department === 'Purchasing');
 };
+
+// Sales permission helpers
+export const canCreateSalesOrder = (user) => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return (
+    user.department === 'Sales' &&
+    (user.role === 'manager' || user.role === 'employee')
+  );
+};
+
+export const canConfirmSalesOrder = (user) => canCreateSalesOrder(user);
 
 // Employee management permission helpers
 export const canAddEmployee = (user) => {

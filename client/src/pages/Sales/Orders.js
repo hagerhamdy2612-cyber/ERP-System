@@ -3,10 +3,13 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Card from '../../components/Card';
+import { useAuth } from '../../contexts/AuthContext';
+import { canCreateSalesOrder, canConfirmSalesOrder } from '../../config/permissions';
 import { Plus, ShoppingCart, CheckCircle, Package, Trash2, FileText, Printer, X, Pencil } from 'lucide-react';
 
 const SalesOrders = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -257,6 +260,7 @@ const SalesOrders = () => {
             {t('sales.orders.description')}
           </p>
         </div>
+        {canCreateSalesOrder(user) && (
         <button
           onClick={openCreateModal}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
@@ -264,6 +268,7 @@ const SalesOrders = () => {
           <Plus className="h-4 w-4 mr-2" />
           {t('sales.orders.newOrder')}
         </button>
+        )}
       </div>
 
       {/* Sales Orders */}
@@ -323,7 +328,7 @@ const SalesOrders = () => {
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                     {t(`sales.reports.status.${order.status}`, { defaultValue: order.status })}
                   </span>
-                  {order.status === 'pending' && (
+                  {order.status === 'pending' && canCreateSalesOrder(user) && (
                     <button
                       type="button"
                       onClick={() => openEditModal(order)}
@@ -333,7 +338,7 @@ const SalesOrders = () => {
                       {t('common.edit')}
                     </button>
                   )}
-                  {(order.status === 'pending' || order.status === 'in-production') && (
+                  {(order.status === 'pending' || order.status === 'in-production') && canConfirmSalesOrder(user) && (
                     <button
                       onClick={() => handleConfirm(order._id)}
                       className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
@@ -342,7 +347,7 @@ const SalesOrders = () => {
                       {t('common.confirm')}
                     </button>
                   )}
-                  {order.status === 'confirmed' && (
+                  {order.status === 'confirmed' && canConfirmSalesOrder(user) && (
                     <button
                       onClick={() => handleDeliver(order._id)}
                       className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
@@ -351,6 +356,7 @@ const SalesOrders = () => {
                       {t('sales.actions.deliver', { defaultValue: 'Deliver' })}
                     </button>
                   )}
+                  {canConfirmSalesOrder(user) && (
                   <button
                     onClick={() => handleDelete(order._id)}
                     className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors"
@@ -358,6 +364,7 @@ const SalesOrders = () => {
                     <Trash2 className="h-3 w-3 mr-1" />
                     Delete
                   </button>
+                  )}
                 </div>
               </div>
             </li>

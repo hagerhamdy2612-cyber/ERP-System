@@ -967,18 +967,11 @@ class ReportService {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
 
-      // Get all employees
-      const employees = await Employee.find()
+      // Get all employees (same as HR employees list — must have linked user)
+      const allEmployees = await Employee.find()
         .populate('user', 'name email role department isActive')
         .sort({ createdAt: -1 });
-
-      // Get attendance records
-      const attendanceRecords = await Attendance.find({
-        date: { $gte: start, $lte: end }
-      })
-        .populate('employee', 'employeeId position department')
-        .populate('employee.user', 'name email')
-        .sort({ date: -1 });
+      const employees = allEmployees.filter((emp) => emp.user);
 
       // Department distribution
       const departmentMap = new Map();
@@ -993,53 +986,6 @@ class ReportService {
         department: dept,
         count
       }));
-
-      // Attendance statistics
-      const attendanceStats = {
-        totalRecords: attendanceRecords.length,
-        present: attendanceRecords.filter(a => a.status === 'present').length,
-        absent: attendanceRecords.filter(a => a.status === 'absent').length,
-        late: attendanceRecords.filter(a => a.status === 'late').length,
-        onLeave: attendanceRecords.filter(a => a.status === 'on-leave').length
-      };
-
-      // Employee performance by department
-      const deptAttendanceMap = new Map();
-      attendanceRecords.forEach(record => {
-        if (record.employee && record.employee.department) {
-          const dept = record.employee.department;
-          if (!deptAttendanceMap.has(dept)) {
-            deptAttendanceMap.set(dept, {
-              present: 0,
-              absent: 0,
-              late: 0,
-              onLeave: 0,
-              totalMinutes: 0,
-              totalHours: 0
-            });
-          }
-          const deptStats = deptAttendanceMap.get(dept);
-          deptStats[record.status] = (deptStats[record.status] || 0) + 1;
-          const metrics = calculateAttendanceMetrics({
-            checkIn: record.checkIn,
-            checkOut: record.checkOut,
-            attendanceDate: record.date
-          });
-          deptStats.totalMinutes += metrics.workingMinutes;
-        }
-      });
-
-      const departmentAttendance = Array.from(deptAttendanceMap.entries()).map(([dept, stats]) => {
-        const totalHours = stats.totalMinutes / 60;
-        return {
-          department: dept,
-          ...stats,
-          totalHours,
-          attendanceRate: stats.present > 0
-            ? (stats.present / (stats.present + stats.absent)) * 100
-            : 0
-        };
-      });
 
       // New hires in period
       const newHires = employees.filter(emp => {
@@ -1082,8 +1028,6 @@ class ReportService {
           period: { startDate, endDate }
         },
         departmentDistribution,
-        attendanceStats,
-        departmentAttendance,
         averageSalaryByDept,
         employees: employees.slice(0, 50).map(emp => ({
           employeeId: emp.employeeId,
@@ -1598,18 +1542,6 @@ class ReportService {
           count: dept.count
         });
       });
-    }
-    
-    // Attendance Stats Sheet
-    if (reportData.attendanceStats) {
-      const attendanceSheet = workbook.addWorksheet('Attendance Statistics');
-      attendanceSheet.addRow(['Attendance Statistics']);
-      attendanceSheet.addRow([]);
-      attendanceSheet.addRow(['Total Records', reportData.attendanceStats.totalRecords]);
-      attendanceSheet.addRow(['Present', reportData.attendanceStats.present]);
-      attendanceSheet.addRow(['Absent', reportData.attendanceStats.absent]);
-      attendanceSheet.addRow(['Late', reportData.attendanceStats.late]);
-      attendanceSheet.addRow(['On Leave', reportData.attendanceStats.onLeave]);
     }
     
     // Average Salary by Department Sheet

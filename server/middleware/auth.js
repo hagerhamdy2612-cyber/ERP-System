@@ -93,15 +93,19 @@ const authorizeDepartment = (departmentName) => {
   };
 };
 
-// Grant access to create purchase orders (admin or employees in Purchasing department)
+// Grant access to create purchase orders (admin or Purchasing department staff)
 const authorizeCreatePurchaseOrder = (req, res, next) => {
-  if (req.user.role === 'admin' || 
-      (req.user.role === 'employee' && req.user.department === 'Purchasing')) {
+  if (
+    req.user.role === 'admin' ||
+    (req.user.department === 'Purchasing' &&
+      (req.user.role === 'employee' || req.user.role === 'manager'))
+  ) {
     next();
   } else {
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Only administrators and employees in Purchasing department can create purchase orders'
+      message:
+        'Access denied. Only administrators and Purchasing department staff can create purchase orders'
     });
   }
 };
@@ -132,15 +136,19 @@ const authorizeAcceptPurchaseOrder = (req, res, next) => {
   }
 };
 
-// Grant access to receive purchase orders (admin or employees in Purchasing department)
+// Grant access to receive purchase orders (admin or Purchasing department staff)
 const authorizeReceivePurchaseOrder = (req, res, next) => {
-  if (req.user.role === 'admin' || 
-      (req.user.role === 'employee' && req.user.department === 'Purchasing')) {
+  if (
+    req.user.role === 'admin' ||
+    (req.user.department === 'Purchasing' &&
+      (req.user.role === 'employee' || req.user.role === 'manager'))
+  ) {
     next();
   } else {
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Only administrators and employees in Purchasing department can receive purchase orders'
+      message:
+        'Access denied. Only administrators and Purchasing department staff can receive purchase orders'
     });
   }
 };
@@ -163,29 +171,21 @@ const authorizeCreateSalesOrder = (req, res, next) => {
   });
 };
 
-// Confirm / ship / delete sales orders: admin; managers in any department except Purchasing;
-// Sales department employees only (other departments' employees are not included)
+// Confirm / deliver / delete sales orders: admin or Sales department staff only
 const authorizeSalesOrderWorkflow = (req, res, next) => {
   if (req.user.role === 'admin') {
     return next();
   }
-  if (req.user.department === 'Purchasing') {
-    return res.status(403).json({
-      success: false,
-      message:
-        'Access denied. Users in the Purchasing department cannot confirm, ship, or delete sales orders.'
-    });
-  }
-  if (req.user.role === 'manager') {
-    return next();
-  }
-  if (req.user.role === 'employee' && req.user.department === 'Sales') {
+  if (
+    req.user.department === 'Sales' &&
+    (req.user.role === 'manager' || req.user.role === 'employee')
+  ) {
     return next();
   }
   return res.status(403).json({
     success: false,
     message:
-      'Access denied. Only administrators, managers outside Purchasing, and Sales employees can perform this action.'
+      'Access denied. Only administrators and Sales department staff can confirm, deliver, or delete sales orders.'
   });
 };
 

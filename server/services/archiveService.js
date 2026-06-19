@@ -15,6 +15,15 @@ const DOCUMENT_MODELS = {
   Complaint: require('../models/Complaint')
 };
 
+const Employee = require('../models/Employee');
+
+/** Remove HR employee profile linked to a user (hard delete). */
+async function deleteLinkedEmployeeForUser(userId, session = null) {
+  if (!userId) return { deletedCount: 0 };
+  const opts = session ? { session } : {};
+  return Employee.deleteOne({ user: userId }, opts);
+}
+
 /**
  * Archive a document (soft delete): save full snapshot to Archive, then set isDeleted on original.
  * @param {Object} params
@@ -177,6 +186,9 @@ async function permanentDeleteArchive(archiveId) {
       throw err;
     }
     await Model.deleteOne({ _id: archive.originalId });
+    if (archive.documentType === 'User') {
+      await deleteLinkedEmployeeForUser(archive.originalId);
+    }
   }
 
   await Archive.deleteOne({ _id: archiveId });
@@ -187,5 +199,6 @@ module.exports = {
   archiveDocument,
   restoreArchive,
   permanentDeleteArchive,
+  deleteLinkedEmployeeForUser,
   DOCUMENT_MODELS
 };
