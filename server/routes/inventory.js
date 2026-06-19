@@ -32,8 +32,9 @@ function sanitizeProductPayload(body) {
       .filter((m) => m && m.product && mongoose.Types.ObjectId.isValid(String(m.product)))
       .map((m) => ({
         product: m.product,
-        quantity: Number(m.quantity) || 0
-      }));
+        quantity: Number(m.quantity)
+      }))
+      .filter((m) => Number.isFinite(m.quantity) && m.quantity > 0);
   } else {
     delete data.requiredMaterials;
   }

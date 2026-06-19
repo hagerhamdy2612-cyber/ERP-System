@@ -58,8 +58,18 @@ const FinishedProducts = () => {
     e.preventDefault();
     try {
       const cleanedMaterials = (formData.requiredMaterials || [])
-        .filter(rm => rm.product && rm.quantity)
-        .map(rm => ({ product: rm.product, quantity: Number(rm.quantity) }));
+        .filter(rm => rm.product && rm.quantity !== '' && rm.quantity != null)
+        .map(rm => ({ product: rm.product, quantity: Number(rm.quantity) }))
+        .filter(rm => Number.isFinite(rm.quantity) && rm.quantity > 0);
+
+      const invalidRow = (formData.requiredMaterials || []).find(
+        (rm) => rm.product && rm.quantity !== '' && rm.quantity != null && !(Number(rm.quantity) > 0)
+      );
+      if (invalidRow) {
+        toast.error(t('inventory.finishedProducts.errors.invalidMaterialQuantity'));
+        return;
+      }
+
       // Final product unit cost is derived from its bill of materials (raw material costs).
       const derivedUnitCost = cleanedMaterials.reduce((sum, rm) => {
         const material = rawMaterials.find((m) => m._id === rm.product);
@@ -147,11 +157,6 @@ const FinishedProducts = () => {
     return { color: 'text-green-600', bg: 'bg-green-100', text: t('inventory.status.inStock') };
   };
 
-  const calculateProfitMargin = (product) => {
-    if (!product.sellingPrice || !product.unitCost) return 0;
-    return ((product.sellingPrice - product.unitCost) / product.sellingPrice * 100).toFixed(1);
-  };
-
   const filteredProducts = useMemo(
     () => filterInventoryBySearch(products, searchQuery),
     [products, searchQuery]
@@ -222,7 +227,6 @@ const FinishedProducts = () => {
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filteredProducts.map((product) => {
           const stockStatus = getStockStatus(product);
-          const profitMargin = calculateProfitMargin(product);
           return (
             <div key={product._id} className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-5">
@@ -260,14 +264,6 @@ const FinishedProducts = () => {
                         : '—'}
                     </span>
                   </div>
-                  {product.sellingPrice > 0 && (
-                    <div className="mt-2 flex items-center justify-between text-sm">
-                      <span className="text-gray-500">{t('inventory.finishedProducts.profitMargin')}</span>
-                      <span className={`font-medium ${profitMargin > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {profitMargin}%
-                      </span>
-                    </div>
-                  )}
                   <div className="mt-2 flex items-center justify-between text-sm">
                     <span className="text-gray-500">{t('inventory.finishedProducts.totalValue')}</span>
                     <span className="text-gray-900">
@@ -451,7 +447,7 @@ const FinishedProducts = () => {
                       </select>
                       <input
                         type="number"
-                        min="1"
+                        step="any"
                         placeholder={t('inventory.finishedProducts.qtyPlaceholder')}
                         value={rm.quantity}
                         onChange={(e) => {

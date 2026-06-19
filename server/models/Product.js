@@ -58,7 +58,12 @@ const productSchema = new mongoose.Schema({
     },
     quantity: {
       type: Number,
-      required: true
+      required: true,
+      min: [0, 'Quantity cannot be negative'],
+      validate: {
+        validator: (v) => typeof v === 'number' && v > 0,
+        message: 'Quantity must be greater than 0'
+      }
     }
   }],
   isDeleted: { type: Boolean, default: false },

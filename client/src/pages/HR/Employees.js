@@ -146,7 +146,7 @@ const Employees = () => {
       password: '', // Don't show password for editing
       role: employee.user.role || 'employee',
       department: employee.department || '',
-      salary: employee.salary || '',
+      salary: employee.salary ?? '',
       phone: employee.personalInfo?.phone || ''
     });
     setShowModal(true);
@@ -276,7 +276,7 @@ const Employees = () => {
                       {employee.salary !== undefined && employee.salary > 0 && (
                         <>
                           <span className="mx-2">•</span>
-                          <span>{t('hr.employees.baseSalary') || 'Base Salary'}: {employee.salary}</span>
+                          <span>Base Salary: {employee.salary}</span>
                         </>
                       )}
                     </div>
@@ -449,7 +449,7 @@ const Employees = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('hr.employees.baseSalary') || 'Base Salary'}
+                  Base Salary
                 </label>
                 <input
                   type="number"

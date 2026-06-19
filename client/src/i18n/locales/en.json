@@ -723,6 +723,7 @@
       "errors": {
         "fetchFailed": "Failed to fetch final products",
         "saveFailed": "Failed to save finished product",
+        "invalidMaterialQuantity": "Each raw material quantity must be a number greater than 0 (decimals allowed)",
         "deleteFailed": "Failed to delete finished product"
       }
     },
