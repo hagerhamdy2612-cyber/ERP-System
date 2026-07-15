@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum ProductCategory {
+  raw_material
+  final_product
+  others
+}
+
+enum Unit {
+  PIECE
+  KG
+  G
+  LITER
+  ML
+  BOX
+  PACK
+  BOTTLE
+  CAN
+  METER
+}
+
+// Supplier
+model Supplier {
+  id String @id @default(cuid())
+
+  name          String
+  contactPerson String
+  email         String @unique
+  phone         String
+
+  street  String?
+  city    String?
+  state   String?
+  zipCode String?
+  country String?
+
+  rating       Int     @default(3)
+  paymentTerms String  @default("Net 30")
+  isActive     Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+// Product
+model Product {
+  id String @id @default(cuid())
+
+  name          String
+  sku           String          @unique
+  description   String?
+  category      ProductCategory
+  unit          Unit
+  currentStock  Int             @default(0)
+  minStockLevel Int             @default(0)
+  maxStockLevel Int             @default(1000)
+  unitCost      Decimal         @db.Decimal(10, 2)
+  sellingPrice  Decimal?        @db.Decimal(10, 2)
+  isActive      Boolean         @default(true)
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

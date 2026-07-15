@@ -14,7 +14,13 @@
     "seed:test:reset": "node server/scripts/resetTestData.js",
     "seed:test:attendance": "node server/scripts/generateAttendanceTestData.js"
   },
-  "keywords": ["erp", "react", "nodejs", "mongodb", "express"],
+  "keywords": [
+    "erp",
+    "react",
+    "nodejs",
+    "mongodb",
+    "express"
+  ],
   "author": "ERP System Developer",
   "license": "MIT",
   "devDependencies": {
