@@ -14,9 +14,9 @@ datasource db {
 
 // Enums
 enum ProductCategory {
-  raw_material
-  final_product
-  others
+  RAW_MATERIAL
+  FINAL_PRODUCT
+  OTHERS
 }
 
 enum Unit {
@@ -30,6 +30,28 @@ enum Unit {
   BOTTLE
   CAN
   METER
+}
+
+enum Department {
+  HR
+  MANUFACTURING
+  SCM
+  CRM
+  SALES
+  INVENTORY
+  PURCHASING
+  FINANCE
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
 }
 
 // Supplier
@@ -74,6 +96,69 @@ model Product {
 
   supplierId String?
   supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Employee
+model Employee {
+  id String @id @default(cuid())
+
+  employeeCode String @unique
+
+  firstName  String
+  middleName String?
+  lastName   String
+
+  nationalId String @unique
+
+  email String @unique
+  phone String
+
+  position   String
+  department Department
+
+  hireDate DateTime
+  salary   Decimal  @default(0)
+
+  // Self relation for manager hierarchy
+  managerId    String?
+  manager      Employee?  @relation("EmployeeManager", fields: [managerId], references: [id])
+  subordinates Employee[] @relation("EmployeeManager")
+  user         User?
+
+  street  String?
+  city    String?
+  state   String?
+  zipCode String?
+  country String?
+
+  emergencyContactName         String?
+  emergencyContactPhone        String?
+  emergencyContactEmail        String?
+  emergencyContactRelationship String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// User
+model User {
+  id String @id @default(cuid())
+
+  password String
+
+  role Role
+
+  lastLogin DateTime?
+
+  isActive Boolean @default(true)
+
+  employeeId String   @unique
+  employee   Employee @relation(fields: [employeeId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
